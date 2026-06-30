@@ -6,6 +6,7 @@ import { healthRouter } from './routes/health.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import passport from './lib/passport.js'
 import { authRouter } from './routes/auth.js'
+import { driveRouter } from './routes/drive.js'
 
 const PgStore = ConnectPgSimple(session)
 
@@ -35,6 +36,7 @@ export function createApp() {
 
   app.use('/health', healthRouter)
   app.use('/auth', authRouter)
+  app.use('/api/drive', driveRouter)
   app.use('/api/campaigns', requireAuth, (_req, res) => res.json([]))
 
   return app
