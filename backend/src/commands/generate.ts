@@ -9,6 +9,7 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`)
   if (!campaign.lyricsMarkdown) throw new Error('Campaign has no lyrics — import lyrics first')
 
+  await prisma.post.deleteMany({ where: { campaignId } })
   await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'GENERATING' } })
 
   try {

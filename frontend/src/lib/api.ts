@@ -29,4 +29,5 @@ export const api = {
     req<any>(`/campaigns/${campaignId}/posts/${postId}/push`, { method: 'POST' }),
 
   fetchDriveDoc: (url: string) => req<{ text: string }>(`/drive/doc?url=${encodeURIComponent(url)}`),
+  parseLyrics: (docUrl: string) => req<{ lyricsMarkdown: string }>('/drive/parse-lyrics', { method: 'POST', body: JSON.stringify({ docUrl }) }),
 }

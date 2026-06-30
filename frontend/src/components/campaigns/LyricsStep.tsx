@@ -15,11 +15,11 @@ export function LyricsStep({ lyricsMarkdown, onLyricsChange, onBack, onNext }: P
 
   const fetchMutation = useMutation({
     mutationFn: async () => {
-      const { text } = await api.fetchDriveDoc(docUrl)
-      return text
+      const { lyricsMarkdown } = await api.parseLyrics(docUrl)
+      return lyricsMarkdown
     },
-    onSuccess: (rawText) => {
-      onLyricsChange(rawText)
+    onSuccess: (md) => {
+      onLyricsChange(md)
     }
   })
 

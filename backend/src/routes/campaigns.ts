@@ -20,8 +20,8 @@ const CreateCampaignSchema = z.object({
   platforms: z.array(z.enum(['TIKTOK', 'INSTAGRAM', 'YOUTUBE', 'FACEBOOK'])).min(1),
   brandTone: z.string().min(1),
   brandIdentity: z.string().min(1),
-  preReleaseDays: z.number().int().default(14),
-  postReleaseDays: z.number().int().default(14),
+  preReleaseDays: z.number().int().min(1).max(60).default(14),
+  postReleaseDays: z.number().int().min(1).max(60).default(14),
   videoEnabled: z.boolean().default(false),
   videoStyle: z.string().optional(),
 })
@@ -154,13 +154,20 @@ campaignsRouter.get('/:id/posts', async (req, res) => {
   res.json(posts)
 })
 
+const UpdatePostSchema = z.object({
+  caption: z.string().min(1).max(2200).optional(),
+  hashtags: z.array(z.string()).optional(),
+})
+
 campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
+  const parsed = UpdatePostSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
   const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
   if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
   try {
     const post = await prisma.post.update({
       where: { id: req.params.postId, campaignId: campaign.id },
-      data: { caption: req.body.caption, hashtags: req.body.hashtags }
+      data: parsed.data,
     })
     res.json(post)
   } catch (err: any) {

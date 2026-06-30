@@ -3,7 +3,9 @@ import { prisma } from './db.js'
 const API_BASE = 'https://api.higgsfield.ai/v1'
 
 function headers() {
-  return { Authorization: `Bearer ${process.env.HIGGSFIELD_API_KEY!}`, 'Content-Type': 'application/json' }
+  const key = process.env.HIGGSFIELD_API_KEY
+  if (!key) throw new Error('HIGGSFIELD_API_KEY not set')
+  return { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }
 }
 
 export async function checkJobStatus(jobId: string): Promise<{ status: string; downloadUrl?: string }> {
