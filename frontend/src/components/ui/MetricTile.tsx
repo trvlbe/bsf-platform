@@ -7,7 +7,7 @@ interface Props {
 }
 
 export function MetricTile({ label, value, unit, delta, brand }: Props) {
-  const isUp = delta?.startsWith('+')
+  const isUp = delta?.trim().startsWith('+')
   return (
     <div className={`flex-1 min-w-[160px] p-5 rounded-md border ${brand ? 'border-charcoal-900 bg-white' : 'border-charcoal-100 bg-white'} shadow-sm`}>
       <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-2">{label}</div>

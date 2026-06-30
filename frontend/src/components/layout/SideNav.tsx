@@ -57,7 +57,7 @@ export function SideNav({ user }: Props) {
             <div className="text-white text-sm font-medium truncate">{user.name}</div>
             <div className="text-charcoal-400 text-xs truncate">{user.email}</div>
           </div>
-          <button onClick={() => api.logout().then(() => window.location.href = '/')} className="text-charcoal-400 hover:text-white transition-colors">
+          <button onClick={() => api.logout().then(() => window.location.href = '/').catch(() => window.location.href = '/')} className="text-charcoal-400 hover:text-white transition-colors">
             <LogOut size={14} />
           </button>
         </div>
