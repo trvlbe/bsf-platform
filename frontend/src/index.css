@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@theme {
+  --color-brand: #EA0B8C;
+  --color-brand-600: #C80A78;
+  --color-brand-400: #F23FA5;
+  --color-brand-100: #FDD6E8;
+  --color-brand-050: #FEEDF3;
+
+  --color-charcoal-900: #1A1A1C;
+  --color-charcoal-800: #2A2A2D;
+  --color-charcoal-700: #3A3A3D;
+  --color-charcoal-600: #464547;
+  --color-charcoal-500: #5C5B5E;
+  --color-charcoal-400: #7A797C;
+  --color-charcoal-300: #A3A2A5;
+  --color-charcoal-200: #CCCBCE;
+  --color-charcoal-100: #E6E5E7;
+  --color-charcoal-050: #F4F3F5;
+
+  --color-paper: #FAFAFB;
+  --color-paper-warm: #F7F7F8;
+  --color-success: #10B981;
+  --color-danger: #E11D48;
+  --color-amber: #F5A524;
+  --color-cyan: #0BC6EA;
+
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --shadow-sm: 0 1px 3px rgba(26,26,28,0.08), 0 1px 2px rgba(26,26,28,0.04);
+  --shadow-md: 0 4px 12px rgba(26,26,28,0.08), 0 2px 4px rgba(26,26,28,0.04);
+  --shadow-brand: 0 8px 24px rgba(234,11,140,0.28);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-charcoal-700);
+  -webkit-font-smoothing: antialiased;
+}
