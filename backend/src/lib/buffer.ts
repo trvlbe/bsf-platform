@@ -12,10 +12,11 @@ const PROFILE_ENV: Record<string, string> = {
 export async function pushPost(post: Post): Promise<string> {
   const profileId = process.env[PROFILE_ENV[post.platform]]
   if (!profileId) throw new Error(`No Buffer profile ID for platform ${post.platform} — set ${PROFILE_ENV[post.platform]}`)
+  if (!process.env.BUFFER_ACCESS_TOKEN) throw new Error('BUFFER_ACCESS_TOKEN not set')
 
   const text = `${post.caption}\n${post.hashtags.join(' ')}`
   const body = new URLSearchParams({
-    access_token: process.env.BUFFER_ACCESS_TOKEN!,
+    access_token: process.env.BUFFER_ACCESS_TOKEN,
     profile_ids: profileId,
     text,
     scheduled_at: post.scheduledAt.toISOString(),

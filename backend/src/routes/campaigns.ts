@@ -130,8 +130,12 @@ campaignsRouter.post('/:id/generate', async (req, res) => {
 campaignsRouter.post('/:id/push', async (req, res) => {
   const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
   if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
-  const result = await pushCampaign(req.params.id, req.session.userId!)
-  res.json(result)
+  try {
+    const result = await pushCampaign(req.params.id, req.session.userId!)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Push failed', message: err.message })
+  }
 })
 
 campaignsRouter.get('/:id/posts', async (req, res) => {
@@ -147,11 +151,15 @@ campaignsRouter.get('/:id/posts', async (req, res) => {
 campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
   const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
   if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
-  const post = await prisma.post.update({
-    where: { id: req.params.postId },
-    data: { caption: req.body.caption, hashtags: req.body.hashtags }
-  })
-  res.json(post)
+  try {
+    const post = await prisma.post.update({
+      where: { id: req.params.postId, campaignId: campaign.id },
+      data: { caption: req.body.caption, hashtags: req.body.hashtags }
+    })
+    res.json(post)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Internal error', message: err.message })
+  }
 })
 
 campaignsRouter.post('/:id/posts/:postId/push', async (req, res) => {
@@ -159,9 +167,13 @@ campaignsRouter.post('/:id/posts/:postId/push', async (req, res) => {
   if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
   const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
   if (!post) { res.status(404).json({ error: 'Post not found' }); return }
-  const bufferId = await pushPost(post)
-  const updated = await prisma.post.update({ where: { id: post.id }, data: { bufferId } })
-  res.json(updated)
+  try {
+    const bufferId = await pushPost(post)
+    const updated = await prisma.post.update({ where: { id: post.id }, data: { bufferId } })
+    res.json(updated)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Push failed', message: err.message })
+  }
 })
 
 campaignsRouter.get('/:id/status', async (req, res) => {
