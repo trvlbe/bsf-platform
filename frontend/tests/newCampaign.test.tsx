@@ -7,7 +7,7 @@ vi.mock('../src/lib/auth.js', () => ({
   useAuth: () => ({ user: { id: '1', name: 'TJ', email: 'tj@test.com', avatarUrl: null }, isLoading: false, isAuthenticated: true }),
   AuthProvider: ({ children }: any) => children,
 }))
-vi.mock('../src/lib/api.js', () => ({ api: { createCampaign: vi.fn(), importLyrics: vi.fn() } }))
+vi.mock('../src/lib/api.js', () => ({ api: { createCampaign: vi.fn(), fetchDriveDoc: vi.fn().mockResolvedValue({ text: '' }) } }))
 
 import NewCampaign from '../src/pages/NewCampaign.js'
 

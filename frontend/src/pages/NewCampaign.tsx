@@ -109,8 +109,8 @@ export default function NewCampaign() {
 
         {step === 2 && (
           <div className="flex flex-col gap-4">
-            <div>{fieldLabel('Brand Tone', 'brandTone')}<input id="brandTone" placeholder="e.g. Warm and honest, indie roots" value={form.brandTone} onChange={set('brandTone')} className="w-full border border-charcoal-200 rounded px-3 py-2.5 text-sm" /></div>
-            <div>{fieldLabel('Brand Identity', 'brandIdentity')}<input id="brandIdentity" placeholder="e.g. Indie alt-pop with folk influences" value={form.brandIdentity} onChange={set('brandIdentity')} className="w-full border border-charcoal-200 rounded px-3 py-2.5 text-sm" /></div>
+            <div>{fieldLabel('Brand Tone', 'brandTone')}{textInput({ name: 'brandTone', placeholder: 'e.g. Warm and honest, indie roots', value: form.brandTone, onChange: set('brandTone') })}</div>
+            <div>{fieldLabel('Brand Identity', 'brandIdentity')}{textInput({ name: 'brandIdentity', placeholder: 'e.g. Indie alt-pop with folk influences', value: form.brandIdentity, onChange: set('brandIdentity') })}</div>
             <div className="flex items-center gap-3">
               <input type="checkbox" id="videoEnabled" checked={form.videoEnabled} onChange={e => setForm(f => ({ ...f, videoEnabled: e.target.checked }))} />
               <label htmlFor="videoEnabled" className="font-sans text-sm text-charcoal-700">Enable Higgsfield video generation</label>
