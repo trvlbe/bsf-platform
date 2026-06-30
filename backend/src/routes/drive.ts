@@ -18,8 +18,12 @@ driveRouter.get('/doc', async (req, res) => {
     res.status(401).json({ error: 'No Drive access token — re-authenticate' })
     return
   }
-  const text = await fetchDocAsText(url, user.accessToken)
-  res.json({ text })
+  try {
+    const text = await fetchDocAsText(url, user.accessToken)
+    res.json({ text })
+  } catch (err: any) {
+    res.status(502).json({ error: 'Drive API error', message: err.message })
+  }
 })
 
 driveRouter.get('/file', async (req, res) => {
@@ -33,6 +37,10 @@ driveRouter.get('/file', async (req, res) => {
     res.status(401).json({ error: 'No Drive access token' })
     return
   }
-  const metadata = await getFileMetadata(url, user.accessToken)
-  res.json(metadata)
+  try {
+    const metadata = await getFileMetadata(url, user.accessToken)
+    res.json(metadata)
+  } catch (err: any) {
+    res.status(502).json({ error: 'Drive API error', message: err.message })
+  }
 })
