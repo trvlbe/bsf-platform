@@ -4,6 +4,7 @@ import { prisma } from '../lib/db.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { fetchDocAsText } from '../lib/driveClient.js'
 import { parseLyricsFromRawText } from '../lib/claudeLyricsParser.js'
+import { generateCampaign } from '../commands/generate.js'
 
 export const campaignsRouter = Router()
 campaignsRouter.use(requireAuth)
@@ -110,6 +111,17 @@ campaignsRouter.post('/:id/lyrics', async (req, res) => {
     res.json({ lyricsMarkdown })
   } catch (err: any) {
     res.status(500).json({ error: 'Internal error', message: err.message })
+  }
+})
+
+campaignsRouter.post('/:id/generate', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  try {
+    const result = await generateCampaign(req.params.id, req.session.userId!)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Generate failed', message: err.message })
   }
 })
 
