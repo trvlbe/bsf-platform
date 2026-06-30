@@ -39,7 +39,13 @@ campaignsRouter.get('/', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { posts: true } } }
     })
-    res.json(campaigns)
+    const pushedCounts = await prisma.post.groupBy({
+      by: ['campaignId'],
+      where: { campaignId: { in: campaigns.map(c => c.id) }, bufferId: { not: null } },
+      _count: { id: true }
+    })
+    const pushedMap = new Map(pushedCounts.map(p => [p.campaignId, p._count.id]))
+    res.json(campaigns.map(c => ({ ...c, pushedCount: pushedMap.get(c.id) ?? 0 })))
   } catch (err: any) {
     res.status(500).json({ error: 'Internal error', message: err.message })
   }
