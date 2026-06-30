@@ -14,7 +14,7 @@ authRouter.get('/google',
 authRouter.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/login?error=oauth' }),
   (req, res) => {
-    req.session.userId = (req.user as any).id
+    req.session.userId = req.user!.id
     res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5174'}/dashboard`)
   }
 )
@@ -24,10 +24,13 @@ authRouter.get('/me', (req, res) => {
     res.status(401).json({ error: 'Not authenticated' })
     return
   }
-  const user = req.user as any
-  res.json({ id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl })
+  const { id, email, name, avatarUrl } = req.user
+  res.json({ id, email, name, avatarUrl })
 })
 
 authRouter.post('/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }))
+  req.session.destroy((err) => {
+    if (err) console.error('Session destroy error on logout:', err)
+    res.json({ ok: true })
+  })
 })

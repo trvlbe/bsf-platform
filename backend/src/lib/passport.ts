@@ -8,14 +8,14 @@ passport.use(new GoogleStrategy(
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     callbackURL: '/auth/google/callback',
   },
-  async (_accessToken, refreshToken, profile, done) => {
+  async (accessToken, refreshToken, profile, done) => {
     try {
       const user = await prisma.user.upsert({
         where: { googleId: profile.id },
         update: {
           name: profile.displayName,
           avatarUrl: profile.photos?.[0]?.value,
-          accessToken: _accessToken,
+          accessToken,
           refreshToken: refreshToken || undefined,
         },
         create: {
@@ -23,7 +23,7 @@ passport.use(new GoogleStrategy(
           email: profile.emails![0].value,
           name: profile.displayName,
           avatarUrl: profile.photos?.[0]?.value,
-          accessToken: _accessToken,
+          accessToken,
           refreshToken: refreshToken || undefined,
         }
       })
@@ -34,7 +34,7 @@ passport.use(new GoogleStrategy(
   }
 ))
 
-passport.serializeUser((user: any, done) => done(null, user.id))
+passport.serializeUser((user, done) => done(null, (user as { id: string }).id))
 passport.deserializeUser(async (id: string, done) => {
   try {
     const user = await prisma.user.findUnique({ where: { id } })
