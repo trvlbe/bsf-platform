@@ -3,7 +3,7 @@ import cors from 'cors'
 import session from 'express-session'
 import ConnectPgSimple from 'connect-pg-simple'
 import { healthRouter } from './routes/health.js'
-import { campaignsRouter } from './routes/campaigns.js'
+import { requireAuth } from './middleware/requireAuth.js'
 
 const PgStore = ConnectPgSimple(session)
 
@@ -29,7 +29,7 @@ export function createApp() {
   }))
 
   app.use('/health', healthRouter)
-  app.use('/api/campaigns', campaignsRouter)
+  app.use('/api/campaigns', requireAuth, (_req, res) => res.json([]))
 
   return app
 }
