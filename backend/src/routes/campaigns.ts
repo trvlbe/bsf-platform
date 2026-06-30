@@ -5,6 +5,8 @@ import { requireAuth } from '../middleware/requireAuth.js'
 import { fetchDocAsText } from '../lib/driveClient.js'
 import { parseLyricsFromRawText } from '../lib/claudeLyricsParser.js'
 import { generateCampaign } from '../commands/generate.js'
+import { pushCampaign } from '../commands/push.js'
+import { pushPost } from '../lib/buffer.js'
 
 export const campaignsRouter = Router()
 campaignsRouter.use(requireAuth)
@@ -123,6 +125,43 @@ campaignsRouter.post('/:id/generate', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: 'Generate failed', message: err.message })
   }
+})
+
+campaignsRouter.post('/:id/push', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const result = await pushCampaign(req.params.id, req.session.userId!)
+  res.json(result)
+})
+
+campaignsRouter.get('/:id/posts', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const posts = await prisma.post.findMany({
+    where: { campaignId: campaign.id },
+    orderBy: [{ dayOffset: 'asc' }, { platform: 'asc' }]
+  })
+  res.json(posts)
+})
+
+campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const post = await prisma.post.update({
+    where: { id: req.params.postId },
+    data: { caption: req.body.caption, hashtags: req.body.hashtags }
+  })
+  res.json(post)
+})
+
+campaignsRouter.post('/:id/posts/:postId/push', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
+  if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+  const bufferId = await pushPost(post)
+  const updated = await prisma.post.update({ where: { id: post.id }, data: { bufferId } })
+  res.json(updated)
 })
 
 campaignsRouter.get('/:id/status', async (req, res) => {
