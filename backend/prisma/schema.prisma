@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CampaignStatus {
+  DRAFT
+  GENERATING
+  GENERATED
+  PUBLISHING
+  ACTIVE
+  COMPLETE
+}
+
+enum Platform {
+  TIKTOK
+  INSTAGRAM
+  YOUTUBE
+  FACEBOOK
+}
+
+enum VideoStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model User {
+  id        String     @id @default(cuid())
+  googleId  String     @unique
+  email     String     @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime   @default(now())
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id            String         @id @default(cuid())
+  userId        String
+  slug          String
+  title         String
+  artist        String
+  label         String
+  releaseDate   DateTime
+  platforms     String[]
+  brandTone     String
+  brandIdentity String
+  status        CampaignStatus @default(DRAFT)
+  createdAt     DateTime       @default(now())
+  user          User           @relation(fields: [userId], references: [id])
+  posts         Post[]
+  arcs          CampaignArc[]
+
+  @@unique([userId, slug])
+}
+
+model Post {
+  id          String      @id @default(cuid())
+  campaignId  String
+  platform    Platform
+  caption     String
+  hashtags    String[]
+  lyricSource String
+  assetNote   String
+  scheduledAt DateTime
+  dayOffset   Int
+  bufferId    String?
+  videoStatus VideoStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  campaign    Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model CampaignArc {
+  id         String   @id @default(cuid())
+  campaignId String
+  title      String
+  body       String
+  createdAt  DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
