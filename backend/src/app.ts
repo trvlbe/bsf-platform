@@ -4,6 +4,8 @@ import session from 'express-session'
 import ConnectPgSimple from 'connect-pg-simple'
 import { healthRouter } from './routes/health.js'
 import { requireAuth } from './middleware/requireAuth.js'
+import passport from './lib/passport.js'
+import { authRouter } from './routes/auth.js'
 
 const PgStore = ConnectPgSimple(session)
 
@@ -28,7 +30,11 @@ export function createApp() {
     }
   }))
 
+  app.use(passport.initialize())
+  app.use(passport.session())
+
   app.use('/health', healthRouter)
+  app.use('/auth', authRouter)
   app.use('/api/campaigns', requireAuth, (_req, res) => res.json([]))
 
   return app
