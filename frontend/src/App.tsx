@@ -1,3 +1,11 @@
+import { RouterProvider } from 'react-router'
+import { router } from './router.js'
+import { AuthProvider } from './lib/auth.js'
+
 export default function App() {
-  return <div className="text-charcoal-900 font-display text-2xl uppercase p-8">BSF Platform</div>
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  )
 }
