@@ -11,7 +11,9 @@ function getKey(): Buffer {
     console.warn('[encrypt] ENCRYPTION_KEY not set — using insecure dev default')
     return Buffer.from('0'.repeat(64), 'hex')
   }
-  if (hex.length !== 64) throw new Error('ENCRYPTION_KEY must be exactly 64 hex chars (32 bytes)')
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error('ENCRYPTION_KEY must be exactly 64 hex characters (0-9, a-f)')
+  }
   return Buffer.from(hex, 'hex')
 }
 

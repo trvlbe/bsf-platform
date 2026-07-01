@@ -132,7 +132,7 @@ export default function Settings() {
     mutationFn: (data: Record<string, string>) => api.updateSettings(data),
     onSuccess: (updated) => {
       queryClient.setQueryData(['settings'], updated)
-      if (updated.isSetupComplete) {
+      if (isSetup && updated.isSetupComplete) {
         window.location.replace('/dashboard')
       }
     },

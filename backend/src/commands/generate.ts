@@ -12,9 +12,14 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
   if (!campaign.lyricsMarkdown) throw new Error('Campaign has no lyrics — import lyrics first')
 
   const user = await prisma.user.findUnique({ where: { id: userId } })
-  const anthropicApiKey = user?.anthropicApiKey
-    ? decrypt(user.anthropicApiKey)
-    : process.env.ANTHROPIC_API_KEY
+  let anthropicApiKey: string | undefined
+  try {
+    anthropicApiKey = user?.anthropicApiKey
+      ? decrypt(user.anthropicApiKey)
+      : process.env.ANTHROPIC_API_KEY
+  } catch {
+    throw new Error('Anthropic API key is unreadable — please re-save it in Settings')
+  }
   if (!anthropicApiKey) throw new Error('Anthropic API key not configured — add it in Settings')
 
   await prisma.post.deleteMany({ where: { campaignId } })

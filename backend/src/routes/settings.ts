@@ -19,14 +19,16 @@ const CREDENTIAL_FIELDS = [
 
 type CredentialField = typeof CREDENTIAL_FIELDS[number]
 
+const credentialString = z.string().trim().min(1)
+
 const UpdateSettingsSchema = z.object({
-  anthropicApiKey: z.string().min(1).optional(),
-  bufferAccessToken: z.string().min(1).optional(),
-  bufferProfileTiktok: z.string().min(1).optional(),
-  bufferProfileInstagram: z.string().min(1).optional(),
-  bufferProfileYoutube: z.string().min(1).optional(),
-  bufferProfileFacebook: z.string().min(1).optional(),
-  higgsfieldApiKey: z.string().min(1).optional(),
+  anthropicApiKey: credentialString.optional(),
+  bufferAccessToken: credentialString.optional(),
+  bufferProfileTiktok: credentialString.optional(),
+  bufferProfileInstagram: credentialString.optional(),
+  bufferProfileYoutube: credentialString.optional(),
+  bufferProfileFacebook: credentialString.optional(),
+  higgsfieldApiKey: credentialString.optional(),
 })
 
 function buildMaskedResponse(user: Record<string, unknown>) {
