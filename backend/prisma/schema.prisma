@@ -59,7 +59,11 @@ model Campaign {
   artist           String
   label            String
   releaseDate      DateTime
-  spotifyUrl       String?
+  musicUrl           String?
+  creativeBrief      String?
+  contentOrientation String  @default("VERTICAL")
+  contentDuration    String  @default("SHORT_FORM")
+  contentResolution  String  @default("1080p")
   platforms        Platform[]
   brandTone        String
   brandIdentity    String
