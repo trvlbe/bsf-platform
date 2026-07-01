@@ -52,6 +52,7 @@ export default function CampaignDetail() {
   const saveBriefMutation = useMutation({
     mutationFn: (text: string) => api.updateCampaign(id!, { creativeBrief: text }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaign', id] }),
+    onError: (e: Error) => alert(`Failed to save brief: ${e.message}`),
   })
 
   const pushMutation = useMutation({

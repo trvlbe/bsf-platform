@@ -23,6 +23,7 @@ const CreateCampaignSchema = z.object({
   brandTone: z.string().min(1),
   brandIdentity: z.string().min(1),
   creativeBrief: z.string().optional(),
+  lyricsMarkdown: z.string().optional(),
   contentOrientation: z.enum(['VERTICAL', 'HORIZONTAL', 'SQUARE']).default('VERTICAL'),
   contentDuration: z.enum(['SHORT_FORM', 'MID_FORM', 'LONG_FORM']).default('SHORT_FORM'),
   contentResolution: z.enum(['1080p', '4K']).default('1080p'),

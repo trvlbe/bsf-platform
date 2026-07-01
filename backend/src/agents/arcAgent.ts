@@ -41,7 +41,9 @@ function buildSystemPrompt(creativeBrief?: string | null, format?: ContentFormat
   if (format) {
     const formatNote = format.duration === 'SHORT_FORM'
       ? 'Content is short-form (≤60s) — themes should be punchy and immediately compelling.'
-      : 'Content is mid-form (1–5min) — themes can support deeper narrative arcs.'
+      : format.duration === 'MID_FORM'
+      ? 'Content is mid-form (1–5min) — themes can support deeper narrative arcs.'
+      : ''
     system += `\n\nCONTENT FORMAT: ${format.orientation} / ${format.duration} / ${format.resolution}. ${formatNote}`
   }
 
