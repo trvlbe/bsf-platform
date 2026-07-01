@@ -10,8 +10,19 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface SettingsResponse {
+  anthropicApiKey: string | null
+  bufferAccessToken: string | null
+  bufferProfileTiktok: string | null
+  bufferProfileInstagram: string | null
+  bufferProfileYoutube: string | null
+  bufferProfileFacebook: string | null
+  higgsfieldApiKey: string | null
+  isSetupComplete: boolean
+}
+
 export const api = {
-  getMe: () => req<{ id: string; email: string; name: string; avatarUrl: string | null }>('/auth/me').catch(() => null),
+  getMe: () => req<{ id: string; email: string; name: string; avatarUrl: string | null; isSetupComplete: boolean }>('/auth/me').catch(() => null),
   logout: () => req<void>('/auth/logout', { method: 'POST' }),
 
   getCampaigns: () => req<any[]>('/campaigns'),
@@ -30,4 +41,8 @@ export const api = {
 
   fetchDriveDoc: (url: string) => req<{ text: string }>(`/drive/doc?url=${encodeURIComponent(url)}`),
   parseLyrics: (docUrl: string) => req<{ lyricsMarkdown: string }>('/drive/parse-lyrics', { method: 'POST', body: JSON.stringify({ docUrl }) }),
+
+  getSettings: () => req<SettingsResponse>('/settings'),
+  updateSettings: (data: Partial<Record<keyof Omit<SettingsResponse, 'isSetupComplete'>, string>>) =>
+    req<SettingsResponse>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
 }
