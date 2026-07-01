@@ -7,7 +7,7 @@ export async function analyzeLyricsForBrief(lyricsMarkdown: string, apiKey: stri
 
   const response = await client.messages.create({
     model: 'claude-opus-4-8',
-    max_tokens: 1024,
+    max_tokens: 4096,
     system: 'You are a creative director for a music artist campaign. Be specific and grounded in the actual lyrics. Avoid generic music marketing language.',
     messages: [{
       role: 'user',
