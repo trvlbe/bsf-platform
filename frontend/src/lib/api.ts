@@ -22,8 +22,8 @@ export interface SettingsResponse {
 }
 
 export const api = {
-  getMe: () => req<{ id: string; email: string; name: string; avatarUrl: string | null; isSetupComplete: boolean }>('/auth/me').catch(() => null),
-  logout: () => req<void>('/auth/logout', { method: 'POST' }),
+  getMe: () => fetch('/auth/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
+  logout: () => fetch('/auth/logout', { credentials: 'include', method: 'POST' }).then(() => undefined),
 
   getCampaigns: () => req<any[]>('/campaigns'),
   createCampaign: (data: any) => req<any>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
@@ -31,6 +31,7 @@ export const api = {
   updateCampaign: (id: string, data: any) => req<any>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   importLyrics: (id: string, docUrl: string) => req<{ lyricsMarkdown: string }>(`/campaigns/${id}/lyrics`, { method: 'POST', body: JSON.stringify({ docUrl }) }),
   generateCampaign: (id: string) => req<{ postCount: number }>(`/campaigns/${id}/generate`, { method: 'POST' }),
+  analyzeBrief: (id: string) => req<{ brief: string }>(`/campaigns/${id}/analyze-brief`, { method: 'POST' }),
   pushCampaign: (id: string) => req<{ pushed: number; skipped: number }>(`/campaigns/${id}/push`, { method: 'POST' }),
   getCampaignStatus: (id: string) => req<any>(`/campaigns/${id}/status`),
   getPosts: (id: string) => req<any[]>(`/campaigns/${id}/posts`),
