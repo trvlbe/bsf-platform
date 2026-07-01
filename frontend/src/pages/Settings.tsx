@@ -133,7 +133,7 @@ export default function Settings() {
     onSuccess: (updated) => {
       queryClient.setQueryData(['settings'], updated)
       if (updated.isSetupComplete) {
-        queryClient.invalidateQueries({ queryKey: ['me'] })
+        window.location.replace('/dashboard')
       }
     },
   })
