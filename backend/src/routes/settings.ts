@@ -33,7 +33,15 @@ function buildMaskedResponse(user: Record<string, unknown>) {
   const result: Record<string, string | null | boolean> = {}
   for (const field of CREDENTIAL_FIELDS) {
     const encrypted = user[field] as string | null
-    result[field] = encrypted ? mask(decrypt(encrypted)) : null
+    if (encrypted) {
+      try {
+        result[field] = mask(decrypt(encrypted))
+      } catch {
+        result[field] = null
+      }
+    } else {
+      result[field] = null
+    }
   }
   result.isSetupComplete = !!(user.anthropicApiKey && user.bufferAccessToken)
   return result
@@ -54,6 +62,11 @@ settingsRouter.put('/', async (req, res) => {
     if (value !== undefined) {
       updates[key as CredentialField] = encrypt(value)
     }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: 'No fields provided' })
+    return
   }
 
   const user = await prisma.user.update({

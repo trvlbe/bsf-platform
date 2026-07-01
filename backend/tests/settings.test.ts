@@ -25,14 +25,6 @@ afterAll(async () => {
   await prisma.$disconnect()
 })
 
-// Helper: get agent with a seeded session
-function authedAgent() {
-  const agent = request.agent(app)
-  // Inject session by hitting a test-only route would be complex;
-  // instead test the route logic directly via prisma state
-  return agent
-}
-
 describe('GET /api/settings', () => {
   it('returns 401 without session', async () => {
     const res = await request(app).get('/api/settings')
