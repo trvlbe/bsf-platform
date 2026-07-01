@@ -8,6 +8,7 @@ import { generateCampaign } from '../commands/generate.js'
 import { pushCampaign } from '../commands/push.js'
 import { pushPost } from '../lib/buffer.js'
 import { decrypt } from '../lib/encrypt.js'
+import { analyzeLyricsForBrief } from '../lib/briefAnalyzer.js'
 
 export const campaignsRouter = Router()
 campaignsRouter.use(requireAuth)
@@ -16,11 +17,15 @@ const CreateCampaignSchema = z.object({
   title: z.string().min(1),
   artist: z.string().min(1),
   label: z.string().min(1),
-  releaseDate: z.string().datetime(),
-  spotifyUrl: z.string().url().optional(),
+  releaseDate: z.coerce.date(),
+  musicUrl: z.string().url().optional(),
   platforms: z.array(z.enum(['TIKTOK', 'INSTAGRAM', 'YOUTUBE', 'FACEBOOK'])).min(1),
   brandTone: z.string().min(1),
   brandIdentity: z.string().min(1),
+  creativeBrief: z.string().optional(),
+  contentOrientation: z.enum(['VERTICAL', 'HORIZONTAL', 'SQUARE']).default('VERTICAL'),
+  contentDuration: z.enum(['SHORT_FORM', 'MID_FORM', 'LONG_FORM']).default('SHORT_FORM'),
+  contentResolution: z.enum(['1080p', '4K']).default('1080p'),
   preReleaseDays: z.number().int().min(1).max(60).default(14),
   postReleaseDays: z.number().int().min(1).max(60).default(14),
   videoEnabled: z.boolean().default(false),
@@ -61,7 +66,7 @@ campaignsRouter.post('/', async (req, res) => {
   try {
     const slug = slugify(parsed.data.title)
     const campaign = await prisma.campaign.create({
-      data: { ...parsed.data, userId: req.session.userId!, slug, releaseDate: new Date(parsed.data.releaseDate) }
+      data: { ...parsed.data, userId: req.session.userId!, slug }
     })
     res.status(201).json(campaign)
   } catch (err: any) {
@@ -94,7 +99,7 @@ campaignsRouter.patch('/:id', async (req, res) => {
     if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
     const updated = await prisma.campaign.update({
       where: { id: req.params.id },
-      data: parsed.data.releaseDate ? { ...parsed.data, releaseDate: new Date(parsed.data.releaseDate) } : parsed.data,
+      data: parsed.data,
     })
     res.json(updated)
   } catch (err: any) {
@@ -120,6 +125,28 @@ campaignsRouter.post('/:id/lyrics', async (req, res) => {
     res.json({ lyricsMarkdown })
   } catch (err: any) {
     res.status(500).json({ error: 'Internal error', message: err.message })
+  }
+})
+
+campaignsRouter.post('/:id/analyze-brief', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  if (!campaign.lyricsMarkdown) { res.status(400).json({ error: 'No lyrics — import lyrics first' }); return }
+
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
+  let anthropicApiKey: string | undefined
+  try {
+    anthropicApiKey = user?.anthropicApiKey ? decrypt(user.anthropicApiKey) : process.env.ANTHROPIC_API_KEY
+  } catch {
+    res.status(500).json({ error: 'Anthropic API key unreadable — re-save in Settings' }); return
+  }
+  if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured' }); return }
+
+  try {
+    const brief = await analyzeLyricsForBrief(campaign.lyricsMarkdown, anthropicApiKey)
+    res.json({ brief })
+  } catch (err: any) {
+    res.status(500).json({ error: 'Analysis failed', message: err.message })
   }
 })
 
