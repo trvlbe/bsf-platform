@@ -38,6 +38,13 @@ model User {
   avatarUrl    String?
   accessToken  String?
   refreshToken String?
+  anthropicApiKey        String?
+  bufferAccessToken      String?
+  bufferProfileTiktok    String?
+  bufferProfileInstagram String?
+  bufferProfileYoutube   String?
+  bufferProfileFacebook  String?
+  higgsfieldApiKey       String?
   campaigns    Campaign[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
