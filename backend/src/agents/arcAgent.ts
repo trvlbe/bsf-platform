@@ -25,8 +25,8 @@ const SUBMIT_ARC_TOOL: Anthropic.Tool = {
   }
 }
 
-export async function runArcAgent(campaign: Campaign, lyrics: ParsedLyrics): Promise<ArcResult> {
-  const client = new Anthropic()
+export async function runArcAgent(campaign: Campaign, lyrics: ParsedLyrics, apiKey?: string): Promise<ArcResult> {
+  const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const lyricSample = lyrics.allLines.slice(0, 30).join('\n')
   const prompt = `Campaign: "${campaign.title}" by ${campaign.artist}
 Brand tone: ${campaign.brandTone}

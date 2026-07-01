@@ -42,9 +42,10 @@ export async function runContentAgent(
   arc: ArcResult,
   lyrics: ParsedLyrics,
   slots: PostSlot[],
-  dayOffset: number
+  dayOffset: number,
+  apiKey?: string,
 ): Promise<PostDraft[]> {
-  const client = new Anthropic()
+  const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const phase = dayOffset < 0 ? 'pre-release' : dayOffset === 0 ? 'release day' : 'post-release'
   const theme = dayOffset < 0 ? arc.preTheme : dayOffset === 0 ? arc.dropDayTheme : arc.postTheme
   const daySlots = slots.filter(s => s.dayOffset === dayOffset)

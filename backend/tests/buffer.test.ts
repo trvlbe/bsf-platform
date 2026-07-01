@@ -15,10 +15,11 @@ const mockPost = {
   lyricSource: 'I keep thinking about us',
 } as Post
 
+const ACCESS_TOKEN = 'test-token'
+const PROFILE_IDS = { TIKTOK: 'profile-123' }
+
 describe('buffer', () => {
   beforeEach(() => {
-    process.env.BUFFER_ACCESS_TOKEN = 'test-token'
-    process.env.BUFFER_PROFILE_TIKTOK = 'profile-123'
     mockFetch.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ update: { id: 'buf_123' } })
@@ -26,7 +27,7 @@ describe('buffer', () => {
   })
 
   it('pushPost returns bufferId', async () => {
-    const id = await pushPost(mockPost)
+    const id = await pushPost(mockPost, ACCESS_TOKEN, PROFILE_IDS)
     expect(id).toBe('buf_123')
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.bufferapp.com/1/updates/create.json',
@@ -34,8 +35,7 @@ describe('buffer', () => {
     )
   })
 
-  it('throws when profile ID env var missing', async () => {
-    delete process.env.BUFFER_PROFILE_TIKTOK
-    await expect(pushPost(mockPost)).rejects.toThrow()
+  it('throws when profile ID missing', async () => {
+    await expect(pushPost(mockPost, ACCESS_TOKEN, {})).rejects.toThrow()
   })
 })
