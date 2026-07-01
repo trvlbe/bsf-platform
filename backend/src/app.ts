@@ -7,6 +7,7 @@ import passport from './lib/passport.js'
 import { authRouter } from './routes/auth.js'
 import { driveRouter } from './routes/drive.js'
 import { campaignsRouter } from './routes/campaigns.js'
+import { settingsRouter } from './routes/settings.js'
 
 const PgStore = ConnectPgSimple(session)
 
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/auth', authRouter)
   app.use('/api/drive', driveRouter)
   app.use('/api/campaigns', campaignsRouter)
+  app.use('/api/settings', settingsRouter)
 
   return app
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import passport from '../lib/passport.js'
+import { prisma } from '../lib/db.js'
 
 export const authRouter = Router()
 
@@ -19,13 +20,18 @@ authRouter.get('/google/callback',
   }
 )
 
-authRouter.get('/me', (req, res) => {
+authRouter.get('/me', async (req, res) => {
   if (!req.session.userId || !req.user) {
     res.status(401).json({ error: 'Not authenticated' })
     return
   }
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  if (!user) { res.status(401).json({ error: 'Not authenticated' }); return }
   const { id, email, name, avatarUrl } = req.user
-  res.json({ id, email, name, avatarUrl })
+  res.json({
+    id, email, name, avatarUrl,
+    isSetupComplete: !!(user.anthropicApiKey && user.bufferAccessToken),
+  })
 })
 
 authRouter.post('/logout', (req, res) => {
