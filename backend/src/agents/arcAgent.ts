@@ -10,6 +10,12 @@ export interface ArcResult {
   rawJson: string
 }
 
+export interface ContentFormat {
+  orientation: string
+  duration: string
+  resolution: string
+}
+
 const SUBMIT_ARC_TOOL: Anthropic.Tool = {
   name: 'submit_arc',
   description: 'Submit the campaign arc for this release',
@@ -25,7 +31,30 @@ const SUBMIT_ARC_TOOL: Anthropic.Tool = {
   }
 }
 
-export async function runArcAgent(campaign: Campaign, lyrics: ParsedLyrics, apiKey?: string): Promise<ArcResult> {
+function buildSystemPrompt(creativeBrief?: string | null, format?: ContentFormat): string {
+  let system = 'You are a music content strategist. Design campaign arcs that let the lyrics speak for themselves. Every theme must be grounded in specific lyric lines.'
+
+  if (creativeBrief?.trim()) {
+    system += `\n\nCREATIVE DIRECTOR'S BRIEF — let this shape the visual and emotional direction of all themes and motifs:\n${creativeBrief}`
+  }
+
+  if (format) {
+    const formatNote = format.duration === 'SHORT_FORM'
+      ? 'Content is short-form (≤60s) — themes should be punchy and immediately compelling.'
+      : 'Content is mid-form (1–5min) — themes can support deeper narrative arcs.'
+    system += `\n\nCONTENT FORMAT: ${format.orientation} / ${format.duration} / ${format.resolution}. ${formatNote}`
+  }
+
+  return system
+}
+
+export async function runArcAgent(
+  campaign: Campaign,
+  lyrics: ParsedLyrics,
+  apiKey?: string,
+  creativeBrief?: string | null,
+  format?: ContentFormat,
+): Promise<ArcResult> {
   const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const lyricSample = lyrics.allLines.slice(0, 30).join('\n')
   const prompt = `Campaign: "${campaign.title}" by ${campaign.artist}
@@ -41,7 +70,7 @@ Design a 29-day campaign arc (14 pre-release, drop day, 14 post-release) rooted 
   const response = await client.messages.create({
     model: 'claude-opus-4-8',
     max_tokens: 2048,
-    system: 'You are a music content strategist. Design campaign arcs that let the lyrics speak for themselves. Every theme must be grounded in specific lyric lines.',
+    system: buildSystemPrompt(creativeBrief, format),
     tools: [SUBMIT_ARC_TOOL],
     tool_choice: { type: 'any' },
     messages: [{ role: 'user', content: prompt }]

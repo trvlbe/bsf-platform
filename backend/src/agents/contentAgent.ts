@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Campaign } from '@prisma/client'
 import type { ParsedLyrics } from '../types.js'
-import type { ArcResult } from './arcAgent.js'
+import type { ArcResult, ContentFormat } from './arcAgent.js'
 import type { PostSlot } from '../lib/calendarBuilder.js'
 
 export interface PostDraft {
@@ -44,6 +44,7 @@ export async function runContentAgent(
   slots: PostSlot[],
   dayOffset: number,
   apiKey?: string,
+  format?: ContentFormat,
 ): Promise<PostDraft[]> {
   const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const phase = dayOffset < 0 ? 'pre-release' : dayOffset === 0 ? 'release day' : 'post-release'
@@ -52,12 +53,19 @@ export async function runContentAgent(
   const platforms = daySlots.map(s => s.platform)
   const lyricSample = lyrics.allLines.slice(0, 20).join('\n')
 
+  const formatGuidance = format?.duration === 'SHORT_FORM'
+    ? 'Content is short-form (≤60s) — write punchy captions, 1-2 lines max. Immediate hook required.'
+    : format?.duration === 'MID_FORM'
+    ? 'Content is mid-form (1–5min) — write richer captions, 2-4 lines. Can develop a mini narrative.'
+    : ''
+
   const prompt = `Campaign: "${campaign.title}" by ${campaign.artist}
 Day: ${dayOffset} (${phase})
 Platforms today: ${platforms.join(', ')}
 Phase theme: ${theme}
 Key motifs: ${arc.motifs.join(' | ')}
 Brand tone: ${campaign.brandTone}
+${formatGuidance ? `\nFormat: ${formatGuidance}` : ''}
 
 Lyrics:
 ${lyricSample}

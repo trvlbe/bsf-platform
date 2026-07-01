@@ -28,7 +28,16 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
   try {
     const parsedLyrics = parseMarkdownLyrics(campaign.lyricsMarkdown)
     const slots = buildPostSlots(campaign)
-    const arc = await runArcAgent(campaign, parsedLyrics, anthropicApiKey)
+
+    const format = (campaign.contentOrientation && campaign.contentDuration && campaign.contentResolution)
+      ? {
+          orientation: campaign.contentOrientation,
+          duration: campaign.contentDuration,
+          resolution: campaign.contentResolution,
+        }
+      : undefined
+
+    const arc = await runArcAgent(campaign, parsedLyrics, anthropicApiKey, campaign.creativeBrief, format)
 
     await prisma.campaignArc.upsert({
       where: { campaignId },
@@ -40,7 +49,7 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
     const allPosts: Prisma.PostCreateManyInput[] = []
 
     for (const dayOffset of days) {
-      const drafts = await runContentAgent(campaign, arc, parsedLyrics, slots, dayOffset, anthropicApiKey)
+      const drafts = await runContentAgent(campaign, arc, parsedLyrics, slots, dayOffset, anthropicApiKey, format)
       const daySlots = slots.filter(s => s.dayOffset === dayOffset)
       for (const draft of drafts) {
         const slot = daySlots.find(s => s.platform === draft.platform)
