@@ -38,3 +38,24 @@ export async function getFileMetadata(fileUrl: string, accessToken: string) {
   })
   return res.data
 }
+
+export interface DriveFile {
+  id: string
+  name: string
+  mimeType: string
+  webViewLink: string
+  size?: string
+}
+
+export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<DriveFile[]> {
+  const folderId = extractFileId(folderUrl)
+  const auth = new google.auth.OAuth2()
+  auth.setCredentials({ access_token: accessToken })
+  const drive = google.drive({ version: 'v3', auth })
+  const res = await drive.files.list({
+    q: `'${folderId}' in parents and trashed = false`,
+    fields: 'files(id,name,mimeType,webViewLink,size)',
+    orderBy: 'name',
+  })
+  return ((res.data.files ?? []) as DriveFile[])
+}

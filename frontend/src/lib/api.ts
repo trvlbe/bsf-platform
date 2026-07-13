@@ -6,8 +6,19 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
-  if (!res.ok) throw new Error(`${res.status} ${path}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.message || body?.error || `${res.status} ${path}`)
+  }
   return res.json() as Promise<T>
+}
+
+export interface DriveFile {
+  id: string
+  name: string
+  mimeType: string
+  webViewLink: string
+  size?: string
 }
 
 export interface SettingsResponse {
@@ -34,6 +45,7 @@ export const api = {
   analyzeBrief: (id: string) => req<{ brief: string }>(`/campaigns/${id}/analyze-brief`, { method: 'POST' }),
   pushCampaign: (id: string) => req<{ pushed: number; skipped: number }>(`/campaigns/${id}/push`, { method: 'POST' }),
   getCampaignStatus: (id: string) => req<any>(`/campaigns/${id}/status`),
+  getAssets: (id: string) => req<DriveFile[]>(`/campaigns/${id}/assets`),
   getPosts: (id: string) => req<any[]>(`/campaigns/${id}/posts`),
   updatePost: (campaignId: string, postId: string, data: any) =>
     req<any>(`/campaigns/${campaignId}/posts/${postId}`, { method: 'PATCH', body: JSON.stringify(data) }),

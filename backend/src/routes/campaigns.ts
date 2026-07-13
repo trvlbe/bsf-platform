@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/db.js'
 import { requireAuth } from '../middleware/requireAuth.js'
-import { fetchDocAsText } from '../lib/driveClient.js'
+import { fetchDocAsText, listFolderFiles } from '../lib/driveClient.js'
 import { parseLyricsFromRawText } from '../lib/claudeLyricsParser.js'
 import { generateCampaign } from '../commands/generate.js'
 import { pushCampaign } from '../commands/push.js'
@@ -19,6 +19,7 @@ const CreateCampaignSchema = z.object({
   label: z.string().min(1),
   releaseDate: z.coerce.date(),
   musicUrl: z.string().url().optional(),
+  assetsFolderUrl: z.string().url().optional(),
   platforms: z.array(z.enum(['TIKTOK', 'INSTAGRAM', 'YOUTUBE', 'FACEBOOK'])).min(1),
   brandTone: z.string().min(1),
   brandIdentity: z.string().min(1),
@@ -116,16 +117,41 @@ campaignsRouter.post('/:id/lyrics', async (req, res) => {
   }
   try {
     const { docUrl } = lyricsBodyParsed.data
-    const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+    const [campaign, user] = await Promise.all([
+      prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } }),
+      prisma.user.findUnique({ where: { id: req.session.userId! } }),
+    ])
     if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
-    const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
-    if (!user?.accessToken) { res.status(401).json({ error: 'No Drive token' }); return }
+    if (!user?.accessToken) { res.status(401).json({ error: 'No Drive token — sign out and sign back in with Google' }); return }
+
+    let anthropicApiKey: string | undefined
+    try {
+      anthropicApiKey = user.anthropicApiKey ? decrypt(user.anthropicApiKey) : process.env.ANTHROPIC_API_KEY
+    } catch {
+      res.status(500).json({ error: 'Anthropic API key unreadable — re-save in Settings' }); return
+    }
+    if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured — add it in Settings' }); return }
+
     const rawText = await fetchDocAsText(docUrl, user.accessToken)
-    const lyricsMarkdown = await parseLyricsFromRawText(rawText)
+    const lyricsMarkdown = await parseLyricsFromRawText(rawText, anthropicApiKey)
     await prisma.campaign.update({ where: { id: req.params.id }, data: { lyricsDocUrl: docUrl, lyricsMarkdown } })
     res.json({ lyricsMarkdown })
   } catch (err: any) {
-    res.status(500).json({ error: 'Internal error', message: err.message })
+    res.status(500).json({ error: 'Lyrics import failed', message: err.message })
+  }
+})
+
+campaignsRouter.get('/:id/assets', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  if (!campaign.assetsFolderUrl) { res.json([]); return }
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
+    if (!user?.accessToken) { res.status(401).json({ error: 'No Drive token — sign out and sign back in with Google' }); return }
+    const files = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+    res.json(files)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to list assets', message: err.message })
   }
 })
 

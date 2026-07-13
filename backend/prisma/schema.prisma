@@ -60,6 +60,7 @@ model Campaign {
   label            String
   releaseDate      DateTime
   musicUrl           String?
+  assetsFolderUrl  String?
   creativeBrief      String?
   contentOrientation String  @default("VERTICAL")
   contentDuration    String  @default("SHORT_FORM")
