@@ -4,6 +4,7 @@ import type { ParsedLyrics } from '../types.js'
 import type { ArcResult, ContentFormat } from './arcAgent.js'
 import type { PostSlot } from '../lib/calendarBuilder.js'
 import type { DriveFile } from '../lib/driveClient.js'
+import type { SongAnalysis } from '../lib/musicAnalyzer.js'
 
 export interface PostDraft {
   platform: string
@@ -43,7 +44,7 @@ const SUBMIT_POSTS_TOOL: Anthropic.Tool = {
             caption: { type: 'string' },
             hashtags: { type: 'array', items: { type: 'string' } },
             lyricSource: { type: 'string', description: 'Exact lyric line this post is rooted in — verbatim, no paraphrasing' },
-            assetNote: { type: 'string', description: 'Specific visual asset guidance — reference filename if assets are available, otherwise describe the visual scene concretely' }
+            assetNote: { type: 'string', description: 'Specific filename from available assets OR a concrete visual description. If music analysis shows a hook moment, reference it for editing timing.' }
           },
           required: ['platform', 'caption', 'hashtags', 'lyricSource', 'assetNote']
         }
@@ -62,6 +63,7 @@ export async function runContentAgent(
   apiKey?: string,
   format?: ContentFormat,
   assets?: DriveFile[],
+  songAnalysis?: SongAnalysis,
 ): Promise<PostDraft[]> {
   const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const phase = dayOffset < 0 ? 'pre-release' : dayOffset === 0 ? 'release day' : 'post-release'
@@ -76,14 +78,18 @@ export async function runContentAgent(
     ? 'Content is mid-form (1–5min) — write richer captions, 2-4 lines. Can develop a mini narrative arc.'
     : ''
 
+  const assetsLine = assets && assets.length > 0 ? `\nAvailable assets: ${assets.map(f => f.name).join(', ')}` : ''
+  const musicLine = songAnalysis
+    ? `\nMusic: ${songAnalysis.bpm ?? '?'}bpm, hook at ${songAnalysis.hookMoment}`
+    : ''
+
   const prompt = `Campaign: "${campaign.title}" by ${campaign.artist}
 Day: ${dayOffset} (${phase})
 Platforms today: ${platforms.join(', ')}
 Phase theme: ${theme}
 Key motifs: ${arc.motifs.join(' | ')}
 Brand tone: ${campaign.brandTone}
-${formatGuidance ? `\nFormat: ${formatGuidance}` : ''}
-${assets && assets.length > 0 ? `\nAvailable assets: ${assets.map(f => f.name).join(', ')}` : ''}
+${formatGuidance ? `\nFormat: ${formatGuidance}` : ''}${assetsLine}${musicLine}
 
 Lyrics:
 ${lyricSample}
