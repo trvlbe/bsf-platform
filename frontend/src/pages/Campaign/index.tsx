@@ -9,7 +9,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import { CalendarView } from './CalendarView.js'
 import { PostsView } from './PostsView.js'
 import { useAuth } from '../../lib/auth.js'
-import { api } from '../../lib/api.js'
+import { api, type DriveFile } from '../../lib/api.js'
 
 type Tab = 'calendar' | 'posts'
 
@@ -58,6 +58,24 @@ export default function CampaignDetail() {
   const pushMutation = useMutation({
     mutationFn: () => api.pushCampaign(id!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaign', id] })
+  })
+
+  const [assetsFolder, setAssetsFolder] = useState(campaign?.assetsFolderUrl ?? '')
+
+  useEffect(() => {
+    setAssetsFolder(campaign?.assetsFolderUrl ?? '')
+  }, [campaign?.assetsFolderUrl])
+
+  const { data: assets } = useQuery({
+    queryKey: ['assets', id],
+    queryFn: () => api.getAssets(id!),
+    enabled: !!campaign?.assetsFolderUrl,
+  })
+
+  const saveFolderMutation = useMutation({
+    mutationFn: (url: string) => api.updateCampaign(id!, { assetsFolderUrl: url }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['campaign', id] }),
+    onError: (e: Error) => alert(`Failed to save folder: ${e.message}`),
   })
 
   if (isLoading || !campaign) return (
@@ -154,6 +172,48 @@ export default function CampaignDetail() {
             )}
           </div>
         )}
+
+        {/* Assets Folder */}
+        <div className="mb-6 border border-charcoal-100 rounded-lg p-5">
+          <label className="font-display text-xs tracking-widest uppercase text-charcoal-500 block mb-3">
+            Assets Folder
+          </label>
+          <div className="flex gap-2 mb-3">
+            <input
+              type="url"
+              placeholder="https://drive.google.com/drive/folders/..."
+              value={assetsFolder}
+              onChange={e => setAssetsFolder(e.target.value)}
+              onBlur={() => {
+                if (assetsFolder !== (campaign.assetsFolderUrl ?? '')) {
+                  saveFolderMutation.mutate(assetsFolder)
+                }
+              }}
+              className="flex-1 border border-charcoal-200 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-brand"
+            />
+            {saveFolderMutation.isPending && (
+              <span className="text-xs text-charcoal-400 self-center">Saving...</span>
+            )}
+          </div>
+          {assets && assets.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {(assets as DriveFile[]).map(f => (
+                <a
+                  key={f.id}
+                  href={f.webViewLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-charcoal-50 border border-charcoal-100 rounded text-xs text-charcoal-600 hover:border-brand transition-colors"
+                >
+                  <span>
+                    {f.mimeType.startsWith('video') ? '🎬' : f.mimeType.startsWith('image') ? '🖼' : '📄'}
+                  </span>
+                  <span className="max-w-[140px] truncate">{f.name}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-1 border-b border-charcoal-100 mb-6">
           {(['calendar', 'posts'] as Tab[]).map(t => (
