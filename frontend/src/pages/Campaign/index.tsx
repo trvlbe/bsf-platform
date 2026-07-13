@@ -9,7 +9,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import { CalendarView } from './CalendarView.js'
 import { PostsView } from './PostsView.js'
 import { useAuth } from '../../lib/auth.js'
-import { api, type DriveFile } from '../../lib/api.js'
+import { api, type DriveFile, type SongAnalysis } from '../../lib/api.js'
 
 type Tab = 'calendar' | 'posts'
 
@@ -76,6 +76,12 @@ export default function CampaignDetail() {
     mutationFn: (url: string) => api.updateCampaign(id!, { assetsFolderUrl: url }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaign', id] }),
     onError: (e: Error) => alert(`Failed to save folder: ${e.message}`),
+  })
+
+  const analyzeMusicMutation = useMutation({
+    mutationFn: () => api.analyzeMusic(id!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['campaign', id] }),
+    onError: (e: Error) => alert(`Music analysis failed: ${e.message}`),
   })
 
   if (isLoading || !campaign) return (
@@ -214,6 +220,59 @@ export default function CampaignDetail() {
             </div>
           )}
         </div>
+
+        {campaign.musicUrl && (
+          <div className="mb-6 border border-charcoal-100 rounded-lg p-5">
+            <div className="flex items-center justify-between mb-3">
+              <label className="font-display text-xs tracking-widest uppercase text-charcoal-500">Music Analysis</label>
+              <button
+                onClick={() => analyzeMusicMutation.mutate()}
+                disabled={analyzeMusicMutation.isPending}
+                className="text-xs font-display uppercase tracking-wide text-brand hover:text-brand/70 transition-colors disabled:opacity-40"
+              >
+                {analyzeMusicMutation.isPending ? 'Analyzing...' : '♪ Analyze Music →'}
+              </button>
+            </div>
+            {campaign.songAnalysis && (() => {
+              const sa = campaign.songAnalysis as SongAnalysis
+              return (
+                <div className="space-y-2 text-sm">
+                  <div className="flex gap-4 text-charcoal-600">
+                    {sa.bpm != null && (
+                      <span><span className="font-mono font-bold">{sa.bpm}</span> BPM</span>
+                    )}
+                    {sa.durationSecs != null && (
+                      <span>
+                        <span className="font-mono font-bold">
+                          {Math.floor(sa.durationSecs / 60)}:{String(sa.durationSecs % 60).padStart(2, '0')}
+                        </span>
+                      </span>
+                    )}
+                    {sa.key && <span className="font-mono">{sa.key}</span>}
+                  </div>
+                  {sa.hookMoment && (
+                    <p className="text-charcoal-500 text-xs">Hook: {sa.hookMoment}</p>
+                  )}
+                  {sa.sections.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {sa.sections.map((s, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 bg-charcoal-50 border border-charcoal-100 rounded text-xs text-charcoal-600"
+                        >
+                          {s.startSecs != null
+                            ? `${Math.floor(s.startSecs / 60)}:${String(s.startSecs % 60).padStart(2, '0')} `
+                            : ''}
+                          {s.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+        )}
 
         <div className="flex gap-1 border-b border-charcoal-100 mb-6">
           {(['calendar', 'posts'] as Tab[]).map(t => (
