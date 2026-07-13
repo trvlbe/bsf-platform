@@ -13,6 +13,24 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface SongSection {
+  label: string
+  startSecs: number | null
+  durationSecs: number | null
+  description: string
+}
+
+export interface SongAnalysis {
+  bpm: number | null
+  durationSecs: number | null
+  key: string | null
+  timeSignature: string | null
+  sections: SongSection[]
+  energyNotes: string
+  hookMoment: string
+  source: 'spotify' | 'drive'
+}
+
 export interface DriveFile {
   id: string
   name: string
@@ -46,6 +64,7 @@ export const api = {
   pushCampaign: (id: string) => req<{ pushed: number; skipped: number }>(`/campaigns/${id}/push`, { method: 'POST' }),
   getCampaignStatus: (id: string) => req<any>(`/campaigns/${id}/status`),
   getAssets: (id: string) => req<DriveFile[]>(`/campaigns/${id}/assets`),
+  analyzeMusic: (id: string) => req<SongAnalysis>(`/campaigns/${id}/analyze-music`, { method: 'POST' }),
   getPosts: (id: string) => req<any[]>(`/campaigns/${id}/posts`),
   updatePost: (campaignId: string, postId: string, data: any) =>
     req<any>(`/campaigns/${campaignId}/posts/${postId}`, { method: 'PATCH', body: JSON.stringify(data) }),

@@ -13,7 +13,7 @@ export function extractFileId(url: string): string {
   return match[1]
 }
 
-function getDriveClient(accessToken: string) {
+export function getDriveClient(accessToken: string) {
   const auth = new google.auth.OAuth2()
   auth.setCredentials({ access_token: accessToken })
   return google.drive({ version: 'v3', auth })

@@ -61,6 +61,7 @@ model Campaign {
   releaseDate      DateTime
   musicUrl           String?
   assetsFolderUrl  String?
+  songAnalysis     Json?
   creativeBrief      String?
   contentOrientation String  @default("VERTICAL")
   contentDuration    String  @default("SHORT_FORM")

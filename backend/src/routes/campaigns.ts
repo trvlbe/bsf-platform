@@ -9,6 +9,7 @@ import { pushCampaign } from '../commands/push.js'
 import { pushPost } from '../lib/buffer.js'
 import { decrypt } from '../lib/encrypt.js'
 import { analyzeLyricsForBrief } from '../lib/briefAnalyzer.js'
+import { analyzeMusicUrl } from '../lib/musicAnalyzer.js'
 
 export const campaignsRouter = Router()
 campaignsRouter.use(requireAuth)
@@ -285,5 +286,31 @@ campaignsRouter.get('/:id/status', async (req, res) => {
     res.json({ status: campaign.status, postCount, pushedCount, pendingVideoCount })
   } catch (err: any) {
     res.status(500).json({ error: 'Internal error', message: err.message })
+  }
+})
+
+campaignsRouter.post('/:id/analyze-music', async (req, res) => {
+  const [campaign, user] = await Promise.all([
+    prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } }),
+    prisma.user.findUnique({ where: { id: req.session.userId! } }),
+  ])
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  if (!campaign.musicUrl) { res.status(400).json({ error: 'No music URL — add one in campaign settings' }); return }
+  if (!user?.accessToken) { res.status(401).json({ error: 'No Drive token — sign out and sign in again' }); return }
+
+  let anthropicApiKey: string | undefined
+  try {
+    anthropicApiKey = user.anthropicApiKey ? decrypt(user.anthropicApiKey) : process.env.ANTHROPIC_API_KEY
+  } catch {
+    res.status(500).json({ error: 'Anthropic API key unreadable — re-save in Settings' }); return
+  }
+  if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured — add it in Settings' }); return }
+
+  try {
+    const analysis = await analyzeMusicUrl(campaign.musicUrl, user.accessToken, anthropicApiKey, campaign.lyricsMarkdown)
+    await prisma.campaign.update({ where: { id: req.params.id }, data: { songAnalysis: analysis as any } })
+    res.json(analysis)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Music analysis failed', message: err.message })
   }
 })
