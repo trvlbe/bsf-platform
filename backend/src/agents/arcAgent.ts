@@ -25,14 +25,18 @@ const SUBMIT_ARC_TOOL: Anthropic.Tool = {
       preTheme: { type: 'string', description: 'Emotional theme for pre-release content (days -14 to -1)' },
       dropDayTheme: { type: 'string', description: 'Theme for the release day (day 0)' },
       postTheme: { type: 'string', description: 'Theme for post-release content (days +1 to +14)' },
-      motifs: { type: 'array', items: { type: 'string' }, description: 'Key lyric lines (exact quotes) that anchor the arc' }
+      motifs: { type: 'array', items: { type: 'string' }, description: 'Key lyric lines (exact quotes) that anchor the arc — selected for high shareability and emotional rawness' }
     },
     required: ['preTheme', 'dropDayTheme', 'postTheme', 'motifs']
   }
 }
 
 function buildSystemPrompt(creativeBrief?: string | null, format?: ContentFormat): string {
-  let system = 'You are a music content strategist. Design campaign arcs that let the lyrics speak for themselves. Every theme must be grounded in specific lyric lines.'
+  let system = `You are a music content strategist and creative director. Design campaign arcs that make people stop scrolling and start sharing.
+
+VIRAL CREATIVE DIRECTION: Every theme must surface a specific "content moment" — not a genre label or vague emotion, but a concrete visual scene or feeling a viewer could recreate or relate to. Every motif must be an exact lyric line chosen for shareability: unexpected, emotionally raw, or so specific it feels like the listener's own secret.
+
+Avoid generic phrases like "introspective journey" or "emotional ballad" — be concrete and scene-specific.`
 
   if (creativeBrief?.trim()) {
     system += `\n\nCREATIVE DIRECTOR'S BRIEF — let this shape the visual and emotional direction of all themes and motifs:\n${creativeBrief}`
@@ -49,6 +53,8 @@ function buildSystemPrompt(creativeBrief?: string | null, format?: ContentFormat
 
   return system
 }
+
+export const buildSystemPromptForTest = buildSystemPrompt
 
 export async function runArcAgent(
   campaign: Campaign,
