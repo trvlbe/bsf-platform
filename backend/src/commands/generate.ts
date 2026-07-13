@@ -5,6 +5,7 @@ import { buildPostSlots } from '../lib/calendarBuilder.js'
 import { runArcAgent } from '../agents/arcAgent.js'
 import { runContentAgent } from '../agents/contentAgent.js'
 import { decrypt } from '../lib/encrypt.js'
+import { listFolderFiles, type DriveFile } from '../lib/driveClient.js'
 
 export async function generateCampaign(campaignId: string, userId: string): Promise<{ postCount: number }> {
   const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, userId } })
@@ -37,7 +38,16 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
         }
       : undefined
 
-    const arc = await runArcAgent(campaign, parsedLyrics, anthropicApiKey, campaign.creativeBrief, format)
+    let assets: DriveFile[] = []
+    if (campaign.assetsFolderUrl && user?.accessToken) {
+      try {
+        assets = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+      } catch {
+        // non-fatal — generation continues without assets
+      }
+    }
+
+    const arc = await runArcAgent(campaign, parsedLyrics, anthropicApiKey, campaign.creativeBrief, format, assets)
 
     await prisma.campaignArc.upsert({
       where: { campaignId },
@@ -49,7 +59,7 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
     const allPosts: Prisma.PostCreateManyInput[] = []
 
     for (const dayOffset of days) {
-      const drafts = await runContentAgent(campaign, arc, parsedLyrics, slots, dayOffset, anthropicApiKey, format)
+      const drafts = await runContentAgent(campaign, arc, parsedLyrics, slots, dayOffset, anthropicApiKey, format, assets)
       const daySlots = slots.filter(s => s.dayOffset === dayOffset)
       for (const draft of drafts) {
         const slot = daySlots.find(s => s.platform === draft.platform)

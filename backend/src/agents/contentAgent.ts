@@ -3,6 +3,7 @@ import type { Campaign } from '@prisma/client'
 import type { ParsedLyrics } from '../types.js'
 import type { ArcResult, ContentFormat } from './arcAgent.js'
 import type { PostSlot } from '../lib/calendarBuilder.js'
+import type { DriveFile } from '../lib/driveClient.js'
 
 export interface PostDraft {
   platform: string
@@ -60,6 +61,7 @@ export async function runContentAgent(
   dayOffset: number,
   apiKey?: string,
   format?: ContentFormat,
+  assets?: DriveFile[],
 ): Promise<PostDraft[]> {
   const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const phase = dayOffset < 0 ? 'pre-release' : dayOffset === 0 ? 'release day' : 'post-release'
@@ -81,6 +83,7 @@ Phase theme: ${theme}
 Key motifs: ${arc.motifs.join(' | ')}
 Brand tone: ${campaign.brandTone}
 ${formatGuidance ? `\nFormat: ${formatGuidance}` : ''}
+${assets && assets.length > 0 ? `\nAvailable assets: ${assets.map(f => f.name).join(', ')}` : ''}
 
 Lyrics:
 ${lyricSample}
