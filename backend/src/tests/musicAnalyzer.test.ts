@@ -49,8 +49,8 @@ describe('analyzeMusicUrl — Spotify path', () => {
   it('extracts Spotify track ID from URL', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ json: async () => ({ access_token: 'sp-token' }) })
-      .mockResolvedValueOnce({ json: async () => ({ tempo: 128.4, duration_ms: 213000, key: 7, mode: 1, time_signature: 4, energy: 0.8, valence: 0.6, danceability: 0.7 }) })
-      .mockResolvedValueOnce({ json: async () => ({ sections: [{ start: 0, duration: 15, loudness: -5.2, tempo: 128 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ tempo: 128.4, duration_ms: 213000, key: 7, mode: 1, time_signature: 4, energy: 0.8, valence: 0.6, danceability: 0.7 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ sections: [{ start: 0, duration: 15, loudness: -5.2, tempo: 128 }] }) })
     vi.stubGlobal('fetch', fetchMock)
 
     const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')

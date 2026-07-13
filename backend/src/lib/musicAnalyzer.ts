@@ -67,6 +67,15 @@ async function analyzeSpotify(spotifyUrl: string, anthropicApiKey: string): Prom
     }),
   ])
 
+  if (!featuresRes.ok) {
+    const err = await featuresRes.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(`Spotify audio-features error ${featuresRes.status}: ${err?.error?.message ?? 'unknown'}`)
+  }
+  if (!analysisRes.ok) {
+    const err = await analysisRes.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(`Spotify audio-analysis error ${analysisRes.status}: ${err?.error?.message ?? 'unknown'}`)
+  }
+
   const features = await featuresRes.json() as {
     tempo: number; duration_ms: number; key: number; mode: number;
     time_signature: number; energy: number; valence: number; danceability: number
