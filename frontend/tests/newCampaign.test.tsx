@@ -32,6 +32,6 @@ describe('NewCampaign', () => {
     )
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Think About Us' } })
     fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    expect(screen.getByText(/lyrics/i)).toBeTruthy()
+    expect(screen.getAllByText(/assets/i).length).toBeGreaterThan(0)
   })
 })

@@ -6,11 +6,13 @@ import { api } from '../../lib/api.js'
 interface Props {
   lyricsMarkdown: string
   onLyricsChange: (md: string) => void
+  assetsFolderUrl: string
+  onAssetsFolderChange: (url: string) => void
   onBack: () => void
   onNext: () => void
 }
 
-export function LyricsStep({ lyricsMarkdown, onLyricsChange, onBack, onNext }: Props) {
+export function LyricsStep({ lyricsMarkdown, onLyricsChange, assetsFolderUrl, onAssetsFolderChange, onBack, onNext }: Props) {
   const [docUrl, setDocUrl] = useState('')
 
   const fetchMutation = useMutation({
@@ -41,6 +43,18 @@ export function LyricsStep({ lyricsMarkdown, onLyricsChange, onBack, onNext }: P
           </Button>
         </div>
         <p className="text-xs text-charcoal-400 mt-1.5">Make sure your Google Doc is shared with your Google account. Claude will parse the formatting.</p>
+      </div>
+
+      <div>
+        <label className="font-display text-xs tracking-widest uppercase text-charcoal-500 block mb-1">Assets Folder (Google Drive)</label>
+        <input
+          type="url"
+          placeholder="https://drive.google.com/drive/folders/..."
+          value={assetsFolderUrl}
+          onChange={e => onAssetsFolderChange(e.target.value)}
+          className="w-full border border-charcoal-200 rounded px-3 py-2.5 text-sm"
+        />
+        <p className="text-xs text-charcoal-400 mt-1.5">Images and video files in this folder will be available when reviewing posts.</p>
       </div>
 
       {lyricsMarkdown && (

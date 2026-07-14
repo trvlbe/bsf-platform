@@ -10,7 +10,7 @@ import { api } from '../lib/api.js'
 
 const PLATFORMS = ['TIKTOK', 'INSTAGRAM', 'YOUTUBE', 'FACEBOOK'] as const
 
-const STEPS = ['Basics', 'Lyrics', 'Settings']
+const STEPS = ['Basics', 'Assets', 'Settings']
 
 export default function NewCampaign() {
   const { user } = useAuth()
@@ -24,14 +24,17 @@ export default function NewCampaign() {
     contentOrientation: 'VERTICAL' as string,
     contentDuration: 'SHORT_FORM' as string,
     contentResolution: '1080p' as string,
+    assetsFolderUrl: '',
   })
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const campaign = await api.createCampaign({ ...form })
-      if (lyricsMarkdown) {
-        await api.updateCampaign(campaign.id, { lyricsMarkdown })
-      }
+      const { assetsFolderUrl, ...createPayload } = form
+      const campaign = await api.createCampaign({ ...createPayload })
+      const patches: Record<string, string> = {}
+      if (lyricsMarkdown) patches.lyricsMarkdown = lyricsMarkdown
+      if (assetsFolderUrl) patches.assetsFolderUrl = assetsFolderUrl
+      if (Object.keys(patches).length) await api.updateCampaign(campaign.id, patches)
       return campaign
     },
     onSuccess: (c) => navigate(`/campaigns/${c.id}`),
@@ -115,6 +118,8 @@ export default function NewCampaign() {
           <LyricsStep
             lyricsMarkdown={lyricsMarkdown}
             onLyricsChange={setLyricsMarkdown}
+            assetsFolderUrl={form.assetsFolderUrl}
+            onAssetsFolderChange={v => setForm(f => ({ ...f, assetsFolderUrl: v }))}
             onBack={() => setStep(0)}
             onNext={() => setStep(2)}
           />
