@@ -11,12 +11,27 @@ vi.mock('../middleware/requireAuth.js', () => ({
   },
 }))
 
+// Mock Buffer API so push tests don't hit the real Buffer service
+vi.mock('../lib/buffer.js', () => ({
+  pushPost: vi.fn().mockResolvedValue('fake-buffer-id-123'),
+}))
+
+// Mock musicAnalyzer to avoid dependency on music-metadata package in test envs
+vi.mock('../lib/musicAnalyzer.js', () => ({
+  analyzeMusicUrl: vi.fn().mockResolvedValue({ tempo: 120, mood: 'energetic' }),
+}))
+
 // Import app AFTER the mock is registered
 const { app } = await import('../app.js')
 
 let testUserId: string
 let testCampaignId: string
 let testPostId: string
+
+// Push-guard test fixtures
+let pushCampaignId: string
+let approvedPostId: string
+let unapprovedPostId: string
 
 beforeAll(async () => {
   // Find or create a test user
@@ -63,11 +78,63 @@ beforeAll(async () => {
     },
   })
   testPostId = post.id
+
+  // --- Push-guard fixtures ---
+  // Set env vars so pushCampaign can resolve a token + profile without a real user token
+  process.env.BUFFER_ACCESS_TOKEN = 'test-buffer-token'
+  process.env.BUFFER_PROFILE_TIKTOK = 'test-tiktok-profile-id'
+
+  const pushCampaign = await prisma.campaign.create({
+    data: {
+      userId: testUserId,
+      slug: 'push-guard-test-campaign',
+      title: 'Push Guard Test Campaign',
+      artist: 'Push Artist',
+      label: 'Push Label',
+      releaseDate: new Date('2026-10-01'),
+      platforms: ['TIKTOK'],
+      brandTone: 'test',
+      brandIdentity: 'test',
+    },
+  })
+  pushCampaignId = pushCampaign.id
+
+  const approvedPost = await prisma.post.create({
+    data: {
+      campaignId: pushCampaignId,
+      platform: 'TIKTOK',
+      caption: 'Approved post caption',
+      hashtags: ['#approved'],
+      lyricSource: 'Approved lyric quote',
+      assetNote: 'Approved asset note',
+      scheduledAt: new Date('2026-10-01'),
+      dayOffset: 0,
+      approved: true,
+    },
+  })
+  approvedPostId = approvedPost.id
+
+  const unapprovedPost = await prisma.post.create({
+    data: {
+      campaignId: pushCampaignId,
+      platform: 'TIKTOK',
+      caption: 'Unapproved post caption',
+      hashtags: ['#unapproved'],
+      lyricSource: 'Unapproved lyric quote',
+      assetNote: 'Unapproved asset note',
+      scheduledAt: new Date('2026-10-02'),
+      dayOffset: 1,
+      approved: false,
+    },
+  })
+  unapprovedPostId = unapprovedPost.id
 })
 
 afterAll(async () => {
   await prisma.post.deleteMany({ where: { campaignId: testCampaignId } })
   await prisma.campaign.deleteMany({ where: { id: testCampaignId } })
+  await prisma.post.deleteMany({ where: { campaignId: pushCampaignId } })
+  await prisma.campaign.deleteMany({ where: { id: pushCampaignId } })
   await prisma.user.deleteMany({ where: { email: 'approve-test@bsf.test' } })
 })
 
@@ -86,5 +153,24 @@ describe('PATCH /api/campaigns/:id/posts/:postId — approved field', () => {
       .send({ approved: false })
     expect(res.status).toBe(200)
     expect(res.body.approved).toBe(false)
+  })
+})
+
+describe('POST /api/campaigns/:id/push — push guard (approved only)', () => {
+  it('only pushes approved posts; unapproved posts are skipped', async () => {
+    const res = await request(app)
+      .post(`/api/campaigns/${pushCampaignId}/push`)
+    expect(res.status).toBe(200)
+
+    // Only 1 post was approved, so pushed count must be exactly 1
+    expect(res.body.pushed).toBe(1)
+
+    // Approved post must have received a bufferId
+    const approved = await prisma.post.findUnique({ where: { id: approvedPostId } })
+    expect(approved?.bufferId).not.toBeNull()
+
+    // Unapproved post must still have bufferId === null
+    const unapproved = await prisma.post.findUnique({ where: { id: unapprovedPostId } })
+    expect(unapproved?.bufferId).toBeNull()
   })
 })
