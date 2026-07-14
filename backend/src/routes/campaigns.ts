@@ -14,16 +14,18 @@ import { analyzeMusicUrl } from '../lib/musicAnalyzer.js'
 export const campaignsRouter = Router()
 campaignsRouter.use(requireAuth)
 
+const optionalUrl = z.union([z.string().url(), z.literal('')]).optional().transform(v => v || undefined)
+
 const CreateCampaignSchema = z.object({
   title: z.string().min(1),
-  artist: z.string().min(1),
-  label: z.string().min(1),
-  releaseDate: z.coerce.date(),
-  musicUrl: z.string().url().optional(),
-  assetsFolderUrl: z.string().url().optional(),
+  artist: z.string().default(''),
+  label: z.string().default(''),
+  releaseDate: z.preprocess(v => (v === '' || v == null) ? new Date() : v, z.coerce.date()),
+  musicUrl: optionalUrl,
+  assetsFolderUrl: optionalUrl,
   platforms: z.array(z.enum(['TIKTOK', 'INSTAGRAM', 'YOUTUBE', 'FACEBOOK'])).min(1),
   brandTone: z.string().min(1),
-  brandIdentity: z.string().min(1),
+  brandIdentity: z.string().default(''),
   creativeBrief: z.string().optional(),
   lyricsMarkdown: z.string().optional(),
   contentOrientation: z.enum(['VERTICAL', 'HORIZONTAL', 'SQUARE']).default('VERTICAL'),
@@ -214,6 +216,8 @@ const UpdatePostSchema = z.object({
   caption: z.string().min(1).max(2200).optional(),
   hashtags: z.array(z.string()).optional(),
   approved: z.boolean().optional(),
+  assetFileId: z.string().nullable().optional(),
+  assetMimeType: z.string().nullable().optional(),
 })
 
 campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {

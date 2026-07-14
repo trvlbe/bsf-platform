@@ -1,0 +1,2 @@
+ALTER TABLE "Post" ADD COLUMN "assetFileId" TEXT;
+ALTER TABLE "Post" ADD COLUMN "assetMimeType" TEXT;
