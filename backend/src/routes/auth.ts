@@ -30,7 +30,7 @@ authRouter.get('/me', async (req, res) => {
   const { id, email, name, avatarUrl } = req.user
   res.json({
     id, email, name, avatarUrl,
-    isSetupComplete: !!(user.anthropicApiKey && user.bufferAccessToken),
+    isSetupComplete: !!(user.anthropicApiKey),
   })
 })
 

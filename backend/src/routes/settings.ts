@@ -45,7 +45,7 @@ function buildMaskedResponse(user: Record<string, unknown>) {
       result[field] = null
     }
   }
-  result.isSetupComplete = !!(user.anthropicApiKey && user.bufferAccessToken)
+  result.isSetupComplete = !!(user.anthropicApiKey)
   return result
 }
 

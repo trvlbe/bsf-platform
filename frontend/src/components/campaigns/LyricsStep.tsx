@@ -20,7 +20,8 @@ export function LyricsStep({ lyricsMarkdown, onLyricsChange, onBack, onNext }: P
     },
     onSuccess: (md) => {
       onLyricsChange(md)
-    }
+    },
+    onError: (e: Error) => alert(`Fetch failed: ${e.message}`),
   })
 
   return (

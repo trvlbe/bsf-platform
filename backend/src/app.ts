@@ -26,7 +26,7 @@ export function createApp() {
   }
 
   app.use(session({
-    store: new PgStore({ conString: process.env.DATABASE_URL }),
+    store: new PgStore({ conString: process.env.DATABASE_URL, createTableIfMissing: true }),
     secret: sessionSecret || 'dev-secret',
     resave: false,
     saveUninitialized: false,

@@ -23,3 +23,52 @@ Plan: C:\Users\TJTravelbee\blue-sky-fable-agent\docs\superpowers\plans\2026-06-3
 | 17 — Campaign Detail + Calendar + Posts Views | complete | 9687678, review approved | no issues |
 | 18 — Higgsfield Port + Docker Compose + CLAUDE.md | complete | b149930, review approved + fixes 7c5fe4f |
 | Final whole-branch review | complete | 7c5fe4f — CR-01/02 (session security), BG-01 (lyric parse path), BG-02 (generate idempotency), WR-01/02 (validation), IN-02 (higgsfield key guard) |
+
+## Settings UI Plan (2026-07-01)
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — Encryption Utility | complete | 33600bf, review clean |
+| 2 — Prisma credential columns | complete | eae1d35, review clean |
+| 3 — Settings API routes | complete | 881818f, fix cdcf139, review clean |
+| 4 — Backend credential wiring | complete | 11a4b1e, review clean | minor: dead PLATFORM_KEY const in buffer.ts; pre-existing silent catch in pushCampaign |
+| 5 — Settings page UI + setup gate | complete | c987bf4, fix a620eac, review clean | minor: save-then-close loses value on mutation failure (MVP-acceptable); isSaving is global not per-field |
+| Final whole-branch review (settings UI) | complete | 0730002 — CR-01 (pushPost signature), IM-01 (hex key validation), IM-02 (decrypt guards), IM-03 (whitespace trim), IM-04 (redirect gate) |
+
+## Campaign Creative Layer Plan (2026-07-01)
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — Schema migration | complete | 7900ead, review clean | minor: second test no-op assertion |
+| 2 — analyze-brief endpoint + route schema updates | complete | b4b2566, fix 0c5ba56, review clean |
+| 3 — Arc + content agent creative brief wiring | complete | bea18eb, review clean | minor: LONG_FORM falls through to mid-form label in arcAgent buildSystemPrompt (LONG_FORM disabled in UI, pass to final review) |
+| 4 — Campaign creation form updates | complete | 9eb2d2b, review clean | minor: disabled field typing in Duration array (no functional impact) |
+| 5 — Creative Brief editor on campaign detail | complete | caf52e2, review clean | minor: saveBriefMutation has no onError (spec omits it, UX gap); useEffect dep campaign?.id by design (spec-prescribed); lyrics banner bundled in same commit (pre-existing work) |
+| Final whole-branch review | complete | 0730002..caf52e2 — fixes 5688176 (lyricsMarkdown in UpdateSchema, saveBriefMutation onError, LONG_FORM explicit in arcAgent) |
+
+## Content Intelligence Plan (2026-07-13)
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — Viral prompt rewrite | complete | 9052fe6, review approved | minor: FACEBOOK voice unasserted in tests (constant present, not a blocker) |
+| 2 — Assets folder schema + Drive listing + route + api.ts | complete | 09114ff + 496063c (vite dep fix), review approved | minor: getDriveClient duplicated inline in listFolderFiles (no functional impact) |
+| 3 — Assets folder UI | complete | a5550e3, review approved |
+| 4 — Wire assets into generate pipeline | complete | 1ceeb1b, review approved | minor: DriveFile type import technically inferrable; prompt "reference filenames" may produce hallucinated refs (QA concern only) |
+| 5 — Music analysis backend | complete | 1256d51, review approved | minor: hookMoment "section 2 at undefineds" on single-section Spotify tracks (sections[1]?.startSecs needs ?? guard); vestigial anthropicApiKey param in analyzeSpotify (unused, harmless) |
+| 6 — Music analysis UI | complete | fe4cacf, review approved | minor: duration chip has no unit label; durationSecs % 60 may show float seconds if API returns non-integer |
+| 7 — Wire song analysis into generate pipeline | complete | c817142, review approved | minor: contentAgent test casts messages[0].content as string (fragile if content becomes ContentBlock[]); hookMoment null guard concern is false positive — hookMoment is string not nullable in SongAnalysis |
+| Final whole-branch review | complete | 754c4a3 — fix: Spotify .ok checks before json() parse (prevents NaN in songAnalysis JSONB); minors logged below |
+
+## Minor findings for follow-up (Content Intelligence plan)
+- durationSecs % 60 in Campaign/index.tsx may show float seconds — add Math.floor on seconds component
+- analyzeSpotify has vestigial anthropicApiKey param (unused in Spotify path)
+- Spotify hookMoment: sections[1]?.startSecs could be undefined → "section 2 at undefineds" — add null guard
+- listFolderFiles duplicates getDriveClient logic instead of calling the exported helper
+- Assets query stale on URL clear — qc.removeQueries(['assets', id]) on saveFolderMutation.onSuccess when URL becomes empty
+- contentAgent test messages[0].content cast as string is fragile if content ever becomes ContentBlock[]
+
+## Post Preview & Approval Plan (2026-07-14)
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — approved field + schema + route + push guard | complete | c702534 + f83fd6e (push-guard test fix), review approved | minor: any casts in test mock (test-only, acceptable); globalThis side-channel for userId (pre-existing pattern) |
+| 2 — PlatformPreview CSS mockups | complete | 3020971, review approved | minor: implementer added import React (correct, not in brief example) |
+| 3 — PostEditor two-column preview + approval gate | complete | d92a23a + 6df718b (pool:forks fix), review approved | minor: alert() in approveMutation onError (acceptable for MVP); stray lockfile music-metadata entry (pre-existing) |
+| 4 — PostsView three-state approval column | complete | 9926467, review approved | minor: badge styling not asserted in tests (visual regression follow-up); pre-existing OOM worker crashes post-test (non-blocking) |
+| Final whole-branch review | complete | 154af86 — fix: gate single-post push on approved guard + rejection test (H1); low: ARIA on approve/push buttons, post:any type safety gap (follow-up) |

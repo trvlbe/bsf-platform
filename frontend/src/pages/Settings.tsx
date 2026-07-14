@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useSearchParams, Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type SettingsResponse } from '../lib/api.js'
 
@@ -136,6 +136,7 @@ export default function Settings() {
         window.location.replace('/dashboard')
       }
     },
+    onError: (e: Error) => alert(`Failed to save: ${e.message}`),
   })
 
   const handleSave = (key: string, value: string) => {
@@ -153,6 +154,9 @@ export default function Settings() {
       )}
 
       <div className="mb-6">
+        <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-charcoal-400 hover:text-charcoal-700 transition-colors mb-4">
+          ← Home
+        </Link>
         <h1 className="text-2xl font-bold text-charcoal-900">Settings</h1>
         <p className="text-sm text-charcoal-500 mt-1">API credentials are encrypted at rest.</p>
       </div>

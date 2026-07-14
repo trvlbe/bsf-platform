@@ -22,8 +22,8 @@ const SYSTEM_PROMPT = `You are a music lyrics formatter. Given raw lyrics text f
 4. Blank line between header and first lyric line
 5. Call submit_lyrics with the formatted result — no explanation, no preamble`
 
-export async function parseLyricsFromRawText(rawText: string): Promise<string> {
-  const client = new Anthropic()
+export async function parseLyricsFromRawText(rawText: string, apiKey?: string): Promise<string> {
+  const client = new Anthropic({ ...(apiKey ? { apiKey } : {}) })
   const response = await client.messages.create({
     model: 'claude-opus-4-8',
     max_tokens: 4096,
