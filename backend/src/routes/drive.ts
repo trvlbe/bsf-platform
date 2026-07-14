@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth } from '../middleware/requireAuth.js'
-import { fetchDocAsText, getFileMetadata } from '../lib/driveClient.js'
+import { fetchDocAsText, getFileMetadata, getDriveClient } from '../lib/driveClient.js'
 import { parseLyricsFromRawText } from '../lib/claudeLyricsParser.js'
+import { decrypt } from '../lib/encrypt.js'
 import { prisma } from '../lib/db.js'
 
 export const driveRouter = Router()
@@ -36,12 +37,46 @@ driveRouter.post('/parse-lyrics', async (req, res) => {
     res.status(401).json({ error: 'No Drive access token — re-authenticate' })
     return
   }
+  let anthropicApiKey: string | undefined
+  try {
+    anthropicApiKey = user.anthropicApiKey ? decrypt(user.anthropicApiKey) : process.env.ANTHROPIC_API_KEY
+  } catch {
+    res.status(500).json({ error: 'Anthropic API key unreadable — re-save in Settings' }); return
+  }
+  if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured — add it in Settings' }); return }
+
   try {
     const rawText = await fetchDocAsText(parsed.data.docUrl, user.accessToken)
-    const lyricsMarkdown = await parseLyricsFromRawText(rawText)
+    const lyricsMarkdown = await parseLyricsFromRawText(rawText, anthropicApiKey)
     res.json({ lyricsMarkdown })
   } catch (err: any) {
     res.status(502).json({ error: 'Parse error', message: err.message })
+  }
+})
+
+driveRouter.get('/asset/:fileId', async (req, res) => {
+  const { fileId } = req.params
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
+  if (!user?.accessToken) {
+    res.status(401).json({ error: 'No Drive token — re-authenticate' })
+    return
+  }
+  try {
+    const drive = getDriveClient(user.accessToken)
+    const meta = await drive.files.get({ fileId, fields: 'mimeType' })
+    const mimeType = meta.data.mimeType ?? 'application/octet-stream'
+    res.setHeader('Content-Type', mimeType)
+    res.setHeader('Cache-Control', 'private, max-age=300')
+    res.setHeader('Accept-Ranges', 'bytes')
+    const fileRes = await drive.files.get(
+      { fileId, alt: 'media' },
+      { responseType: 'stream' },
+    )
+    ;(fileRes.data as any).pipe(res)
+  } catch (err: any) {
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Drive fetch error', message: err.message })
+    }
   }
 })
 
