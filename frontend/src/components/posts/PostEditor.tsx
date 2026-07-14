@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { Button } from '../ui/Button.js'
 import { PlatformPreview } from './PlatformPreview.js'
-import { api } from '../../lib/api.js'
+import { api, type DriveFile } from '../../lib/api.js'
 
 interface Props {
   post: any
@@ -11,10 +11,28 @@ interface Props {
   onClose: () => void
 }
 
+const MIME_ICONS: [string, string][] = [
+  ['video/', '🎬'],
+  ['image/', '🖼'],
+]
+function mimeIcon(mimeType: string) {
+  for (const [prefix, icon] of MIME_ICONS) {
+    if (mimeType.startsWith(prefix)) return icon
+  }
+  return '📄'
+}
+
 export function PostEditor({ post, campaignId, onClose }: Props) {
   const qc = useQueryClient()
   const [caption, setCaption] = useState<string>(post.caption)
   const [hashtags, setHashtags] = useState<string>(post.hashtags.join(', '))
+  const [assetFileId, setAssetFileId] = useState<string | null>(post.assetFileId ?? null)
+  const [assetMimeType, setAssetMimeType] = useState<string | null>(post.assetMimeType ?? null)
+
+  const { data: assets = [] } = useQuery<DriveFile[]>({
+    queryKey: ['assets', campaignId],
+    queryFn: () => api.getAssets(campaignId),
+  })
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -25,6 +43,19 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', campaignId] })
       onClose()
+    },
+  })
+
+  const selectAssetMutation = useMutation({
+    mutationFn: (file: DriveFile) =>
+      api.updatePost(campaignId, post.id, {
+        assetFileId: file.id,
+        assetMimeType: file.mimeType,
+      }),
+    onSuccess: (_data, file) => {
+      setAssetFileId(file.id)
+      setAssetMimeType(file.mimeType)
+      qc.invalidateQueries({ queryKey: ['posts', campaignId] })
     },
   })
 
@@ -49,6 +80,11 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
     .map((h: string) => h.trim())
     .filter(Boolean)
 
+  // Higgsfield video always wins for preview
+  const previewVideoUrl = post.videoUrl ?? null
+  const previewAssetFileId = previewVideoUrl ? null : assetFileId
+  const previewAssetMimeType = previewVideoUrl ? null : assetMimeType
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -70,17 +106,62 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
 
         {/* Two-column body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: Live platform preview */}
-          <div className="w-80 border-r border-charcoal-100 flex items-start justify-center py-8 px-4 overflow-y-auto bg-charcoal-050 shrink-0">
-            <PlatformPreview
-              platform={post.platform}
-              caption={caption}
-              hashtags={previewHashtags}
-              scheduledAt={post.scheduledAt}
-            />
+          {/* Left: preview + asset picker */}
+          <div className="w-80 border-r border-charcoal-100 flex flex-col overflow-y-auto bg-charcoal-050 shrink-0">
+            <div className="flex items-start justify-center py-6 px-4">
+              <PlatformPreview
+                platform={post.platform}
+                caption={caption}
+                hashtags={previewHashtags}
+                scheduledAt={post.scheduledAt}
+                videoUrl={previewVideoUrl}
+                assetFileId={previewAssetFileId}
+                assetMimeType={previewAssetMimeType}
+              />
+            </div>
+
+            {/* Media section */}
+            <div className="px-4 pb-6">
+              <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-2">
+                Media
+              </div>
+
+              {post.videoUrl ? (
+                <div className="flex items-center gap-2 text-xs font-medium p-2 bg-white rounded border border-charcoal-100 text-charcoal-700">
+                  <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+                  Video ready
+                </div>
+              ) : assets.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {assets.map((file: DriveFile) => {
+                    const isSelected = file.id === assetFileId
+                    return (
+                      <button
+                        key={file.id}
+                        onClick={() => selectAssetMutation.mutate(file)}
+                        disabled={selectAssetMutation.isPending}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left w-full transition-colors ${
+                          isSelected
+                            ? 'bg-indigo-50 border border-indigo-300 text-indigo-800'
+                            : 'bg-white border border-charcoal-100 text-charcoal-700 hover:border-charcoal-300'
+                        }`}
+                      >
+                        <span className="text-sm shrink-0">{mimeIcon(file.mimeType)}</span>
+                        <span className="truncate">{file.name}</span>
+                        {isSelected && <span className="ml-auto shrink-0 text-indigo-500">✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-charcoal-400">
+                  No assets folder — add a Google Drive folder URL in campaign settings.
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Right: Editor + actions */}
+          {/* Right: editor + actions */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto">
               <div>
