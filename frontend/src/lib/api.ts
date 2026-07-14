@@ -68,6 +68,8 @@ export const api = {
   getPosts: (id: string) => req<any[]>(`/campaigns/${id}/posts`),
   updatePost: (campaignId: string, postId: string, data: any) =>
     req<any>(`/campaigns/${campaignId}/posts/${postId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  approvePost: (campaignId: string, postId: string) =>
+    req<any>(`/campaigns/${campaignId}/posts/${postId}`, { method: 'PATCH', body: JSON.stringify({ approved: true }) }),
   pushPost: (campaignId: string, postId: string) =>
     req<any>(`/campaigns/${campaignId}/posts/${postId}/push`, { method: 'POST' }),
 

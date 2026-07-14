@@ -10,5 +10,5 @@ export default defineConfig({
       '/api': 'http://localhost:4001',
       '/auth': 'http://localhost:4001',
     }
-  }
+  },
 })
