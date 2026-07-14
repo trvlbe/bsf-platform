@@ -37,7 +37,7 @@ export async function pushCampaign(campaignId: string, userId: string): Promise<
     if (id) profileIds[platform] = id
   }
 
-  const posts = await prisma.post.findMany({ where: { campaignId, bufferId: null } })
+  const posts = await prisma.post.findMany({ where: { campaignId, bufferId: null, approved: true } })
   let pushed = 0, skipped = 0
 
   for (const post of posts) {

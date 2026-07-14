@@ -108,6 +108,7 @@ model Post {
   assetNote   String
   scheduledAt DateTime
   dayOffset   Int
+  approved    Boolean      @default(false)
   bufferId    String?
   videoJobId  String?
   videoStatus VideoStatus?

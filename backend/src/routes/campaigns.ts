@@ -213,6 +213,7 @@ campaignsRouter.get('/:id/posts', async (req, res) => {
 const UpdatePostSchema = z.object({
   caption: z.string().min(1).max(2200).optional(),
   hashtags: z.array(z.string()).optional(),
+  approved: z.boolean().optional(),
 })
 
 campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
