@@ -8,7 +8,11 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new Error(body?.message || body?.error || `${res.status} ${path}`)
+    const errMsg = body?.message
+      ?? (typeof body?.error === 'string' ? body.error : null)
+      ?? (body?.error ? JSON.stringify(body.error) : null)
+      ?? `${res.status} ${path}`
+    throw new Error(errMsg)
   }
   return res.json() as Promise<T>
 }
@@ -58,6 +62,7 @@ export const api = {
   createCampaign: (data: any) => req<any>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
   getCampaign: (id: string) => req<any>(`/campaigns/${id}`),
   updateCampaign: (id: string, data: any) => req<any>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCampaign: (id: string) => req<void>(`/campaigns/${id}`, { method: 'DELETE' }),
   importLyrics: (id: string, docUrl: string) => req<{ lyricsMarkdown: string }>(`/campaigns/${id}/lyrics`, { method: 'POST', body: JSON.stringify({ docUrl }) }),
   generateCampaign: (id: string) => req<{ postCount: number }>(`/campaigns/${id}/generate`, { method: 'POST' }),
   analyzeBrief: (id: string) => req<{ brief: string }>(`/campaigns/${id}/analyze-brief`, { method: 'POST' }),

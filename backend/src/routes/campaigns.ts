@@ -112,6 +112,17 @@ campaignsRouter.patch('/:id', async (req, res) => {
   }
 })
 
+campaignsRouter.delete('/:id', async (req, res) => {
+  try {
+    const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+    if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+    await prisma.campaign.delete({ where: { id: req.params.id } })
+    res.status(204).end()
+  } catch (err: any) {
+    res.status(500).json({ error: 'Internal error', message: err.message })
+  }
+})
+
 campaignsRouter.post('/:id/lyrics', async (req, res) => {
   const lyricsBodyParsed = z.object({ docUrl: z.string().url() }).safeParse(req.body)
   if (!lyricsBodyParsed.success) {

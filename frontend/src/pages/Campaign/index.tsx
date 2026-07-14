@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../../components/layout/AppShell.js'
 import { TopBar } from '../../components/layout/TopBar.js'
@@ -16,6 +16,7 @@ type Tab = 'calendar' | 'posts'
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('calendar')
   const [lyricsUrl, setLyricsUrl] = useState('')
@@ -60,6 +61,15 @@ export default function CampaignDetail() {
   const pushMutation = useMutation({
     mutationFn: () => api.pushCampaign(id!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaign', id] })
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteCampaign(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['campaigns'] })
+      navigate('/dashboard')
+    },
+    onError: (e: Error) => alert(`Delete failed: ${e.message}`),
   })
 
   const [assetsFolder, setAssetsFolder] = useState(campaign?.assetsFolderUrl ?? '')
@@ -114,6 +124,17 @@ export default function CampaignDetail() {
                 {pushMutation.isPending ? 'Pushing...' : 'Push to Buffer →'}
               </Button>
             )}
+            <button
+              onClick={() => {
+                if (window.confirm(`Delete "${campaign.title}"? This cannot be undone.`)) {
+                  deleteMutation.mutate()
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="text-xs text-charcoal-400 hover:text-danger transition-colors disabled:opacity-40 px-2 py-1"
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </button>
           </div>
         }
       />
