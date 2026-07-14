@@ -35,13 +35,48 @@ function ApprovalBadge({ approved, bufferId }: { approved: boolean; bufferId: st
   )
 }
 
-export function PostsView({ campaignId }: { campaignId: string }) {
+function GeneratingTable() {
+  return (
+    <div className="bg-white border border-charcoal-100 rounded-md overflow-hidden">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-charcoal-100">
+            {['Day', 'Platform', 'Caption', 'Lyric Source', 'Status', ''].map(h => (
+              <th key={h} className="px-4 py-3 text-left font-display text-xs tracking-widest uppercase text-charcoal-400">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(6)].map((_, i) => (
+            <tr key={i} className="border-b border-charcoal-100 animate-pulse">
+              <td className="px-4 py-3"><div className="h-3 w-6 bg-charcoal-100 rounded" /></td>
+              <td className="px-4 py-3"><div className="h-3 w-16 bg-charcoal-100 rounded" /></td>
+              <td className="px-4 py-3"><div className="h-3 w-48 bg-charcoal-100 rounded" /></td>
+              <td className="px-4 py-3"><div className="h-3 w-32 bg-charcoal-100 rounded" /></td>
+              <td className="px-4 py-3">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-charcoal-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-charcoal-300 animate-pulse" />
+                  Still Generating
+                </span>
+              </td>
+              <td className="px-4 py-3" />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export function PostsView({ campaignId, isGenerating }: { campaignId: string; isGenerating?: boolean }) {
   const [selected, setSelected] = useState<any>(null)
 
   const { data: posts = [] } = useQuery({
     queryKey: ['posts', campaignId],
     queryFn: () => api.getPosts(campaignId),
   })
+
+  if (isGenerating && !posts.length) return <GeneratingTable />
 
   if (!posts.length) {
     return <div className="py-12 text-center text-charcoal-400">No posts yet</div>

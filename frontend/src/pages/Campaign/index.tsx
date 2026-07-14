@@ -25,6 +25,8 @@ export default function CampaignDetail() {
   const { data: campaign, isLoading } = useQuery({
     queryKey: ['campaign', id],
     queryFn: () => api.getCampaign(id!),
+    refetchInterval: (query) =>
+      query.state.data?.status === 'GENERATING' ? 3000 : false,
   })
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function CampaignDetail() {
     </div>
   )
 
+  const isGenerating = generateMutation.isPending || campaign.status === 'GENERATING'
   const canGenerate = campaign.status === 'DRAFT' && campaign.lyricsMarkdown
   const canPush = campaign.status === 'GENERATED' || campaign.status === 'ACTIVE'
 
@@ -190,16 +193,16 @@ export default function CampaignDetail() {
               placeholder="https://drive.google.com/drive/folders/..."
               value={assetsFolder}
               onChange={e => setAssetsFolder(e.target.value)}
-              onBlur={() => {
-                if (assetsFolder !== (campaign.assetsFolderUrl ?? '')) {
-                  saveFolderMutation.mutate(assetsFolder)
-                }
-              }}
               className="flex-1 border border-charcoal-200 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-brand"
             />
-            {saveFolderMutation.isPending && (
-              <span className="text-xs text-charcoal-400 self-center">Saving...</span>
-            )}
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => saveFolderMutation.mutate(assetsFolder)}
+              disabled={saveFolderMutation.isPending || assetsFolder === (campaign.assetsFolderUrl ?? '')}
+            >
+              {saveFolderMutation.isPending ? 'Saving...' : 'Save'}
+            </Button>
           </div>
           {assets && assets.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -274,6 +277,16 @@ export default function CampaignDetail() {
           </div>
         )}
 
+        {isGenerating && (
+          <div className="mb-6 flex items-center gap-4 px-5 py-4 rounded-lg border border-brand/30 bg-brand/5">
+            <div className="w-5 h-5 shrink-0 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+            <div>
+              <div className="font-display text-sm font-medium text-brand uppercase tracking-wide">Processing Campaign</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Building your arc, then generating all posts day by day — this takes a minute or two. Stay on the page or come back shortly.</div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-1 border-b border-charcoal-100 mb-6">
           {(['calendar', 'posts'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)}
@@ -283,8 +296,8 @@ export default function CampaignDetail() {
           ))}
         </div>
 
-        {tab === 'calendar' && <CalendarView campaignId={id!} />}
-        {tab === 'posts' && <PostsView campaignId={id!} />}
+        {tab === 'calendar' && <CalendarView campaignId={id!} isGenerating={isGenerating} />}
+        {tab === 'posts' && <PostsView campaignId={id!} isGenerating={isGenerating} />}
       </div>
     </AppShell>
   )
