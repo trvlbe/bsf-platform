@@ -174,3 +174,34 @@ describe('POST /api/campaigns/:id/push — push guard (approved only)', () => {
     expect(unapproved?.bufferId).toBeNull()
   })
 })
+
+describe('POST /api/campaigns/:id/posts/:postId/push — single-post approved guard', () => {
+  it('rejects push of unapproved post with 409', async () => {
+    const unapprovedPost = await prisma.post.create({
+      data: {
+        campaignId: testCampaignId,
+        platform: 'INSTAGRAM',
+        caption: 'Unapproved caption',
+        hashtags: [],
+        lyricSource: 'test lyric',
+        assetNote: 'test note',
+        scheduledAt: new Date(),
+        dayOffset: 99,
+        approved: false,
+      },
+    })
+
+    const res = await request(app)
+      .post(`/api/campaigns/${testCampaignId}/posts/${unapprovedPost.id}/push`)
+
+    expect(res.status).toBe(409)
+    expect(res.body.error).toMatch(/approved/)
+
+    // bufferId must still be null
+    const stillUnapproved = await prisma.post.findUnique({ where: { id: unapprovedPost.id } })
+    expect(stillUnapproved?.bufferId).toBeNull()
+
+    // Cleanup
+    await prisma.post.delete({ where: { id: unapprovedPost.id } })
+  })
+})

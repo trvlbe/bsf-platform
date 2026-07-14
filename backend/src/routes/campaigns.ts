@@ -237,6 +237,7 @@ campaignsRouter.post('/:id/posts/:postId/push', async (req, res) => {
   if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
   const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
   if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+  if (!post.approved) { res.status(409).json({ error: 'Post must be approved before pushing' }); return }
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
 
