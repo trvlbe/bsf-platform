@@ -1,5 +1,9 @@
 import { google } from 'googleapis'
 
+export function drivePublicUrl(fileId: string): string {
+  return `https://drive.google.com/uc?id=${fileId}&export=view`
+}
+
 export function extractDocId(url: string): string {
   const match = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)
   if (!match) throw new Error(`Cannot extract doc ID from URL: ${url}`)

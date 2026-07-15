@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { Button } from '../ui/Button.js'
@@ -22,21 +22,54 @@ function mimeIcon(mimeType: string) {
   return '📄'
 }
 
-export function PostEditor({ post, campaignId, onClose }: Props) {
-  const qc = useQueryClient()
-  const [caption, setCaption] = useState<string>(post.caption)
-  const [hashtags, setHashtags] = useState<string>(post.hashtags.join(', '))
-  const [assetFileId, setAssetFileId] = useState<string | null>(post.assetFileId ?? null)
-  const [assetMimeType, setAssetMimeType] = useState<string | null>(post.assetMimeType ?? null)
+const VIDEO_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  PENDING:    { label: 'Queued',     color: 'text-amber-500' },
+  PROCESSING: { label: 'Rendering…', color: 'text-indigo-500' },
+  READY:      { label: 'Ready',      color: 'text-success' },
+  FAILED:     { label: 'Failed',     color: 'text-danger' },
+}
 
-  const { data: assets = [] } = useQuery<DriveFile[]>({
+function defaultPrompt(post: any): string {
+  const note = post.assetNote?.trim()
+  const captionSnippet = post.caption.replace(/[^\w\s,.!?]/g, '').slice(0, 80)
+  return note
+    ? `${note}. Cinematic atmospheric motion.`
+    : `Cinematic atmospheric animation. ${captionSnippet}`
+}
+
+export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
+  const qc = useQueryClient()
+
+  // Live post — starts from prop, updated by the poll query
+  const [livePost, setLivePost] = useState<any>(initialPost)
+  const [caption, setCaption] = useState<string>(initialPost.caption)
+  const [hashtags, setHashtags] = useState<string>(initialPost.hashtags.join(', '))
+  const [assetFileId, setAssetFileId] = useState<string | null>(initialPost.assetFileId ?? null)
+  const [assetMimeType, setAssetMimeType] = useState<string | null>(initialPost.assetMimeType ?? null)
+  const [motionPrompt, setMotionPrompt] = useState<string>(defaultPrompt(initialPost))
+
+  const isVideoInFlight = livePost.videoStatus === 'PENDING' || livePost.videoStatus === 'PROCESSING'
+
+  // Poll this post every 3s while video is generating
+  const { data: polledPost } = useQuery({
+    queryKey: ['post', campaignId, initialPost.id],
+    queryFn: () => api.getPost(campaignId, initialPost.id),
+    refetchInterval: isVideoInFlight ? 3000 : false,
+    enabled: isVideoInFlight,
+  })
+  useEffect(() => {
+    if (polledPost) setLivePost(polledPost)
+  }, [polledPost])
+
+  const { data: assets = [], isLoading: assetsLoading, error: assetsError } = useQuery<DriveFile[]>({
     queryKey: ['assets', campaignId],
     queryFn: () => api.getAssets(campaignId),
+    retry: 1,
   })
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      api.updatePost(campaignId, post.id, {
+      api.updatePost(campaignId, initialPost.id, {
         caption,
         hashtags: hashtags.split(',').map((h: string) => h.trim()).filter(Boolean),
       }),
@@ -48,10 +81,7 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
 
   const selectAssetMutation = useMutation({
     mutationFn: (file: DriveFile) =>
-      api.updatePost(campaignId, post.id, {
-        assetFileId: file.id,
-        assetMimeType: file.mimeType,
-      }),
+      api.updatePost(campaignId, initialPost.id, { assetFileId: file.id, assetMimeType: file.mimeType }),
     onSuccess: (_data, file) => {
       setAssetFileId(file.id)
       setAssetMimeType(file.mimeType)
@@ -59,44 +89,53 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
     },
   })
 
+  const generateVideoMutation = useMutation({
+    mutationFn: () => api.generatePostVideo(campaignId, initialPost.id, motionPrompt),
+    onSuccess: (updated) => {
+      setLivePost(updated)
+      qc.invalidateQueries({ queryKey: ['posts', campaignId] })
+    },
+    onError: (e: Error) => alert(`Video generation failed: ${e.message}`),
+  })
+
   const approveMutation = useMutation({
-    mutationFn: () => api.approvePost(campaignId, post.id),
+    mutationFn: () => api.approvePost(campaignId, initialPost.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['posts', campaignId] }),
     onError: (e: Error) => alert(`Approval failed: ${e.message}`),
   })
 
   const pushMutation = useMutation({
-    mutationFn: () => api.pushPost(campaignId, post.id),
+    mutationFn: () => api.pushPost(campaignId, initialPost.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', campaignId] })
       onClose()
     },
   })
 
-  const isApproved = approveMutation.isSuccess || post.approved
+  const isApproved = approveMutation.isSuccess || livePost.approved
 
-  const previewHashtags = hashtags
-    .split(',')
-    .map((h: string) => h.trim())
-    .filter(Boolean)
-
-  // Higgsfield video always wins for preview
-  const previewVideoUrl = post.videoUrl ?? null
+  // Preview: Higgsfield video wins; else show selected asset
+  const previewVideoUrl = livePost.videoUrl ?? null
   const previewAssetFileId = previewVideoUrl ? null : assetFileId
   const previewAssetMimeType = previewVideoUrl ? null : assetMimeType
+
+  const canGenerateVideo = !!assetFileId && assetMimeType?.startsWith('image/')
+  const videoStatus = livePost.videoStatus as string | null
+  const statusInfo = videoStatus ? VIDEO_STATUS_LABELS[videoStatus] : null
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white w-full max-w-3xl flex flex-col shadow-xl">
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-charcoal-100 shrink-0">
           <div>
             <div className="font-display text-xs tracking-widest uppercase text-charcoal-400">
-              {post.platform} · Day {post.dayOffset > 0 ? `+${post.dayOffset}` : post.dayOffset}
+              {livePost.platform} · Day {livePost.dayOffset > 0 ? `+${livePost.dayOffset}` : livePost.dayOffset}
             </div>
             <h3 className="font-display font-medium text-lg uppercase text-charcoal-900">
-              {post.platform} Post
+              {livePost.platform} Post
             </h3>
           </div>
           <button onClick={onClose} className="text-charcoal-400 hover:text-charcoal-900 transition-colors">
@@ -106,34 +145,45 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
 
         {/* Two-column body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: preview + asset picker */}
+
+          {/* Left: preview + asset picker + video generation */}
           <div className="w-80 border-r border-charcoal-100 flex flex-col overflow-y-auto bg-charcoal-050 shrink-0">
             <div className="flex items-start justify-center py-6 px-4">
               <PlatformPreview
-                platform={post.platform}
+                platform={livePost.platform}
                 caption={caption}
-                hashtags={previewHashtags}
-                scheduledAt={post.scheduledAt}
+                hashtags={hashtags.split(',').map((h: string) => h.trim()).filter(Boolean)}
+                scheduledAt={livePost.scheduledAt}
                 videoUrl={previewVideoUrl}
                 assetFileId={previewAssetFileId}
                 assetMimeType={previewAssetMimeType}
               />
             </div>
 
-            {/* Media section */}
-            <div className="px-4 pb-6">
+            {/* Asset picker */}
+            <div className="px-4 pb-4">
               <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-2">
-                Media
+                Image Asset
               </div>
-
-              {post.videoUrl ? (
-                <div className="flex items-center gap-2 text-xs font-medium p-2 bg-white rounded border border-charcoal-100 text-charcoal-700">
-                  <span className="w-2 h-2 rounded-full bg-success shrink-0" />
-                  Video ready
+              {assetsLoading ? (
+                <div className="flex items-center gap-2 text-xs text-charcoal-400 py-1">
+                  <span className="w-3 h-3 border border-charcoal-300 border-t-transparent rounded-full animate-spin" />
+                  Loading assets…
                 </div>
-              ) : assets.length > 0 ? (
+              ) : assetsError ? (
+                <p className="text-xs text-danger">
+                  Could not load assets: {(assetsError as Error).message}
+                  {(assetsError as Error).message?.includes('token') && (
+                    <span className="block mt-1 text-charcoal-400">Try signing out and back in with Google.</span>
+                  )}
+                </p>
+              ) : assets.length === 0 ? (
+                <p className="text-xs text-charcoal-400">
+                  No assets folder — add a Google Drive folder URL in campaign settings.
+                </p>
+              ) : (
                 <div className="flex flex-col gap-1">
-                  {assets.map((file: DriveFile) => {
+                  {(assets as DriveFile[]).filter(f => f.mimeType.startsWith('image/')).map((file) => {
                     const isSelected = file.id === assetFileId
                     return (
                       <button
@@ -152,24 +202,77 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
                       </button>
                     )
                   })}
+                  {assets.filter(f => f.mimeType.startsWith('image/')).length === 0 && (
+                    <p className="text-xs text-charcoal-400">No image files found in this folder.</p>
+                  )}
                 </div>
-              ) : (
-                <p className="text-xs text-charcoal-400">
-                  No assets folder — add a Google Drive folder URL in campaign settings.
+              )}
+            </div>
+
+            {/* Video generation */}
+            <div className="px-4 pb-6 border-t border-charcoal-100 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-display text-xs tracking-widest uppercase text-charcoal-400">
+                  Video
+                </div>
+                {statusInfo && (
+                  <div className={`flex items-center gap-1.5 text-xs font-medium ${statusInfo.color}`}>
+                    {isVideoInFlight && (
+                      <span className="w-2 h-2 rounded-full border border-current border-t-transparent animate-spin inline-block" />
+                    )}
+                    {statusInfo.label}
+                  </div>
+                )}
+              </div>
+
+              {!canGenerateVideo && (
+                <p className="text-xs text-charcoal-400 mb-3">
+                  Select an image asset above to enable video generation.
                 </p>
               )}
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-charcoal-500">Motion direction</label>
+                <textarea
+                  value={motionPrompt}
+                  onChange={e => setMotionPrompt(e.target.value)}
+                  disabled={!canGenerateVideo || isVideoInFlight}
+                  rows={4}
+                  placeholder="Describe the motion — slow zoom, parallax drift, atmospheric haze, energy level, color tone…"
+                  className="w-full border border-charcoal-200 rounded px-2.5 py-2 text-xs text-charcoal-700 resize-none focus:outline-none focus:border-brand disabled:opacity-40 disabled:bg-charcoal-050"
+                />
+                <Button
+                  size="sm"
+                  variant={videoStatus === 'READY' ? 'secondary' : 'primary'}
+                  onClick={() => generateVideoMutation.mutate()}
+                  disabled={!canGenerateVideo || isVideoInFlight || generateVideoMutation.isPending}
+                  className="w-full"
+                >
+                  {isVideoInFlight
+                    ? 'Generating…'
+                    : videoStatus === 'READY'
+                      ? 'Regenerate ↺'
+                      : videoStatus === 'FAILED'
+                        ? 'Retry →'
+                        : 'Generate Video →'}
+                </Button>
+                {videoStatus === 'FAILED' && (
+                  <p className="text-xs text-danger">Generation failed — adjust the prompt and retry.</p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Right: editor + actions */}
+          {/* Right: text editor + actions */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto">
+
               <div>
                 <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-2">
                   Lyric Source
                 </div>
                 <div className="font-mono text-sm bg-charcoal-050 border border-charcoal-100 rounded p-3 text-charcoal-700 italic">
-                  "{post.lyricSource}"
+                  "{livePost.lyricSource}"
                 </div>
               </div>
 
@@ -211,18 +314,17 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
                 <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-1">
                   Asset Note
                 </div>
-                <div className="text-sm text-charcoal-600 bg-charcoal-050 rounded p-3">{post.assetNote}</div>
+                <div className="text-sm text-charcoal-600 bg-charcoal-050 rounded p-3">{livePost.assetNote}</div>
               </div>
 
               <div className="font-mono text-xs text-charcoal-400">
-                Scheduled: {new Date(post.scheduledAt).toLocaleString()}
+                Scheduled: {new Date(livePost.scheduledAt).toLocaleString()}
               </div>
 
-              {post.bufferId && (
+              {livePost.bufferId && (
                 <div className="flex items-center gap-2 text-sm text-success font-medium">
                   <span className="w-2 h-2 rounded-full bg-success" />
-                  Pushed · Buffer ID:{' '}
-                  <span className="font-mono text-xs">{post.bufferId}</span>
+                  Pushed · Buffer ID: <span className="font-mono text-xs">{livePost.bufferId}</span>
                 </div>
               )}
             </div>
@@ -256,7 +358,7 @@ export function PostEditor({ post, campaignId, onClose }: Props) {
                   </Button>
                 )}
 
-                {!post.bufferId && (
+                {!livePost.bufferId && (
                   <Button
                     onClick={() => pushMutation.mutate()}
                     disabled={pushMutation.isPending || !isApproved}

@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/db.js'
 import { requireAuth } from '../middleware/requireAuth.js'
-import { fetchDocAsText, listFolderFiles } from '../lib/driveClient.js'
+import { fetchDocAsText, listFolderFiles, drivePublicUrl } from '../lib/driveClient.js'
+import { createVideoJob } from '../lib/higgsfield.js'
 import { parseLyricsFromRawText } from '../lib/claudeLyricsParser.js'
 import { generateCampaign } from '../commands/generate.js'
 import { pushCampaign } from '../commands/push.js'
@@ -221,6 +222,41 @@ campaignsRouter.get('/:id/posts', async (req, res) => {
     orderBy: [{ dayOffset: 'asc' }, { platform: 'asc' }]
   })
   res.json(posts)
+})
+
+campaignsRouter.get('/:id/posts/:postId', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
+  if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+  res.json(post)
+})
+
+campaignsRouter.post('/:id/posts/:postId/generate-video', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
+  if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+  if (!post.assetFileId) {
+    res.status(400).json({ error: 'No image asset selected — pick one from the asset list first' }); return
+  }
+  if (!post.assetMimeType?.startsWith('image/')) {
+    res.status(400).json({ error: 'Selected asset is not an image' }); return
+  }
+  const { prompt } = req.body as { prompt?: string }
+  const motionPrompt = prompt?.trim() ||
+    `Cinematic atmospheric animation. ${post.caption.replace(/[^\w\s,.!?]/g, '').slice(0, 100)}`
+  try {
+    const imageUrl = drivePublicUrl(post.assetFileId)
+    const { requestId } = await createVideoJob(imageUrl, motionPrompt)
+    const updated = await prisma.post.update({
+      where: { id: post.id },
+      data: { videoJobId: requestId, videoStatus: 'PENDING', videoUrl: null },
+    })
+    res.json(updated)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Video generation failed', message: err.message })
+  }
 })
 
 const UpdatePostSchema = z.object({
