@@ -32,8 +32,46 @@ async function getSpotifyToken(clientId: string, clientSecret: string): Promise<
     headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials',
   })
+  if (!res.ok) throw new Error(`Spotify token error ${res.status}`)
   const data = await res.json() as { access_token: string }
   return data.access_token
+}
+
+async function inferStructureWithClaude(
+  client: Anthropic,
+  context: string,
+  durationLabel: string,
+  lyricsMarkdown?: string | null,
+): Promise<{ bpm: number | null; key: string | null; timeSignature: string | null; sections: SongSection[]; energyNotes: string; hookMoment: string }> {
+  const prompt = `You are a music analyst. Given this song's context and lyrics, infer its likely musical structure with estimated timestamps for a ${durationLabel} track.
+
+${context}
+${lyricsMarkdown ? `\nLyrics:\n${lyricsMarkdown.slice(0, 2000)}` : ''}
+
+Return a JSON object with this exact shape (no extra keys, no markdown):
+{
+  "bpm": 120,
+  "key": "A minor",
+  "timeSignature": "4/4",
+  "sections": [{"label": "intro", "startSecs": 0, "durationSecs": 15, "description": "instrumental opening"}],
+  "energyNotes": "brief qualitative energy description",
+  "hookMoment": "e.g. chorus at ~0:45"
+}`
+
+  const aiRes = await client.messages.create({
+    model: 'claude-opus-4-8',
+    max_tokens: 1024,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
+  const text = aiRes.content.find(c => c.type === 'text')?.text ?? ''
+  const jsonMatch = text.match(/\{[\s\S]+\}/)
+  if (!jsonMatch) return { bpm: null, key: null, timeSignature: null, sections: [], energyNotes: 'unknown', hookMoment: 'unknown' }
+  try {
+    return JSON.parse(jsonMatch[0]) as ReturnType<typeof inferStructureWithClaude> extends Promise<infer T> ? T : never
+  } catch {
+    return { bpm: null, key: null, timeSignature: null, sections: [], energyNotes: 'unknown', hookMoment: 'unknown' }
+  }
 }
 
 export async function analyzeMusicUrl(
@@ -43,12 +81,16 @@ export async function analyzeMusicUrl(
   lyricsMarkdown?: string | null,
 ): Promise<SongAnalysis> {
   if (musicUrl.includes('spotify.com')) {
-    return analyzeSpotify(musicUrl, anthropicApiKey)
+    return analyzeSpotify(musicUrl, anthropicApiKey, lyricsMarkdown)
   }
   return analyzeDriveFile(musicUrl, accessToken, anthropicApiKey, lyricsMarkdown)
 }
 
-async function analyzeSpotify(spotifyUrl: string, anthropicApiKey: string): Promise<SongAnalysis> {
+async function analyzeSpotify(
+  spotifyUrl: string,
+  anthropicApiKey: string,
+  lyricsMarkdown?: string | null,
+): Promise<SongAnalysis> {
   const trackId = extractSpotifyTrackId(spotifyUrl)
   if (!trackId) throw new Error('Cannot extract Spotify track ID from URL')
 
@@ -58,51 +100,36 @@ async function analyzeSpotify(spotifyUrl: string, anthropicApiKey: string): Prom
 
   const spotifyToken = await getSpotifyToken(clientId, clientSecret)
 
-  const [featuresRes, analysisRes] = await Promise.all([
-    fetch(`https://api.spotify.com/v1/audio-features/${trackId}`, {
-      headers: { Authorization: `Bearer ${spotifyToken}` },
-    }),
-    fetch(`https://api.spotify.com/v1/audio-analysis/${trackId}`, {
-      headers: { Authorization: `Bearer ${spotifyToken}` },
-    }),
-  ])
-
-  if (!featuresRes.ok) {
-    const err = await featuresRes.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(`Spotify audio-features error ${featuresRes.status}: ${err?.error?.message ?? 'unknown'}`)
-  }
-  if (!analysisRes.ok) {
-    const err = await analysisRes.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(`Spotify audio-analysis error ${analysisRes.status}: ${err?.error?.message ?? 'unknown'}`)
+  const trackRes = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+    headers: { Authorization: `Bearer ${spotifyToken}` },
+  })
+  if (!trackRes.ok) {
+    const err = await trackRes.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(`Spotify tracks error ${trackRes.status}: ${err?.error?.message ?? 'unknown'}`)
   }
 
-  const features = await featuresRes.json() as {
-    tempo: number; duration_ms: number; key: number; mode: number;
-    time_signature: number; energy: number; valence: number; danceability: number
-  }
-  const analysis = await analysisRes.json() as {
-    sections: Array<{ start: number; duration: number; loudness: number; tempo: number }>
+  const track = await trackRes.json() as {
+    name: string
+    artists: Array<{ name: string }>
+    duration_ms: number
+    album: { name: string }
   }
 
-  const sections: SongSection[] = (analysis.sections ?? []).map((s, i) => ({
-    label: `section ${i + 1}`,
-    startSecs: Math.round(s.start),
-    durationSecs: Math.round(s.duration),
-    description: `loudness ${s.loudness.toFixed(1)}dB, tempo ${Math.round(s.tempo)}bpm`,
-  }))
+  const durationSecs = Math.round(track.duration_ms / 1000)
+  const durationLabel = `${Math.floor(durationSecs / 60)}:${String(durationSecs % 60).padStart(2, '0')}`
+  const context = `Track: "${track.name}" by ${track.artists.map(a => a.name).join(', ')}\nAlbum: ${track.album.name}`
 
-  const KEY_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-  const keyName = KEY_NAMES[features.key] ?? null
-  const mode = features.mode === 1 ? 'major' : 'minor'
+  const client = new Anthropic({ apiKey: anthropicApiKey })
+  const inferred = await inferStructureWithClaude(client, context, durationLabel, lyricsMarkdown)
 
   return {
-    bpm: Math.round(features.tempo),
-    durationSecs: Math.round(features.duration_ms / 1000),
-    key: keyName ? `${keyName} ${mode}` : null,
-    timeSignature: features.time_signature ? `${features.time_signature}/4` : null,
-    sections,
-    energyNotes: `energy ${(features.energy * 100).toFixed(0)}%, valence ${(features.valence * 100).toFixed(0)}%, danceability ${(features.danceability * 100).toFixed(0)}%`,
-    hookMoment: sections.length > 1 ? `section 2 at ${sections[1]?.startSecs}s (typically chorus)` : 'see sections',
+    bpm: inferred.bpm ?? null,
+    durationSecs,
+    key: inferred.key ?? null,
+    timeSignature: inferred.timeSignature ?? null,
+    sections: inferred.sections ?? [],
+    energyNotes: inferred.energyNotes,
+    hookMoment: inferred.hookMoment,
     source: 'spotify',
   }
 }
@@ -119,52 +146,27 @@ async function analyzeDriveFile(
   const fileRes = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
   const metadata = await mm.parseStream(fileRes.data as any, undefined, { duration: true })
 
-  const bpm = metadata.common.bpm ?? null
+  const bpmFromTag = metadata.common.bpm ?? null
   const durationSecs = metadata.format.duration ? Math.round(metadata.format.duration) : null
-
   const durationLabel = durationSecs
-    ? `${Math.floor(durationSecs / 60)}:${String(Math.round(durationSecs % 60)).padStart(2, '0')} song`
-    : 'song'
+    ? `${Math.floor(durationSecs / 60)}:${String(Math.round(durationSecs % 60)).padStart(2, '0')}`
+    : 'unknown duration'
+
+  const context = metadata.common.title
+    ? `Track: "${metadata.common.title}"${metadata.common.artist ? ` by ${metadata.common.artist}` : ''}`
+    : 'Audio file (no embedded metadata)'
 
   const client = new Anthropic({ apiKey: anthropicApiKey })
-  const inferPrompt = `Given these song lyrics, infer the likely song structure with estimated timestamps for a ${durationLabel}.
-
-${lyricsMarkdown ? `Lyrics:\n${lyricsMarkdown.slice(0, 2000)}` : 'No lyrics available.'}
-
-Return a JSON object matching this shape exactly:
-{
-  "sections": [{"label": "intro", "startSecs": 0, "durationSecs": 15, "description": "instrumental opening"}],
-  "energyNotes": "brief qualitative energy description",
-  "hookMoment": "description of the main hook moment, e.g. 'chorus at ~0:45'"
-}`
-
-  const aiRes = await client.messages.create({
-    model: 'claude-opus-4-8',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: inferPrompt }],
-  })
-
-  let aiData: { sections: SongSection[]; energyNotes: string; hookMoment: string } = {
-    sections: [],
-    energyNotes: 'unknown',
-    hookMoment: 'unknown',
-  }
-  try {
-    const text = aiRes.content.find(c => c.type === 'text')?.text ?? ''
-    const jsonMatch = text.match(/\{[\s\S]+\}/)
-    if (jsonMatch) aiData = JSON.parse(jsonMatch[0]) as typeof aiData
-  } catch {
-    // use defaults
-  }
+  const inferred = await inferStructureWithClaude(client, context, durationLabel, lyricsMarkdown)
 
   return {
-    bpm,
+    bpm: bpmFromTag ?? inferred.bpm ?? null,
     durationSecs,
-    key: null,
-    timeSignature: null,
-    sections: aiData.sections,
-    energyNotes: aiData.energyNotes,
-    hookMoment: aiData.hookMoment,
+    key: inferred.key ?? null,
+    timeSignature: inferred.timeSignature ?? null,
+    sections: inferred.sections ?? [],
+    energyNotes: inferred.energyNotes,
+    hookMoment: inferred.hookMoment,
     source: 'drive',
   }
 }

@@ -72,3 +72,17 @@ Plan: C:\Users\TJTravelbee\blue-sky-fable-agent\docs\superpowers\plans\2026-06-3
 | 3 — PostEditor two-column preview + approval gate | complete | d92a23a + 6df718b (pool:forks fix), review approved | minor: alert() in approveMutation onError (acceptable for MVP); stray lockfile music-metadata entry (pre-existing) |
 | 4 — PostsView three-state approval column | complete | 9926467, review approved | minor: badge styling not asserted in tests (visual regression follow-up); pre-existing OOM worker crashes post-test (non-blocking) |
 | Final whole-branch review | complete | 154af86 — fix: gate single-post push on approved guard + rejection test (H1); low: ARIA on approve/push buttons, post:any type safety gap (follow-up) |
+
+## Post Media Preview Plan (A+C) (2026-07-14)
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — assetFileId + assetMimeType on Post, migration SQL, UpdatePostSchema | complete | 1c7c5bb |
+| 2 — Drive asset proxy GET /api/drive/asset/:fileId | complete | 38e2ebe |
+| 3 — PlatformPreview media slot (video + Drive image) | complete | d3c480b |
+| 4 — PostEditor asset picker + video wiring | complete | 60dbedc |
+
+## Higgsfield Video Generation — On-Demand Per-Post Flow (2026-07-15)
+| Task | Status | Commits |
+|------|--------|---------|
+| Rewrite higgsfield.ts to real API (platform.higgsfield.ai, Key auth, nested params, completed/failed statuses); drivePublicUrl() helper; strip bulk video submission from generate.ts; add get-post + generate-video routes; PostEditor video UI with polling; 30s poll scheduler in index.ts | complete | 235a7c7 | fix: higgsfield.test.ts was stale against the rewritten API contract — updated mocks (Key+Secret auth, `{status, video:{url}}` shape) |
+| Spotify analysis path migrated off deprecated audio-features/audio-analysis endpoints to single /v1/tracks call + Claude-inferred structure (matches Drive-file path); frontend tsconfig excludes test files from build | complete | (pending commit) | fix: musicAnalyzer.test.ts updated for new single-endpoint + Claude-inference contract; addresses prior "section 2 at undefineds" follow-up by removing the Spotify audio-analysis dependency entirely |

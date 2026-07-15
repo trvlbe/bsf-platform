@@ -1,17 +1,32 @@
-import { describe, it, expect, vi } from 'vitest'
-
-vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-  ok: true,
-  json: vi.fn().mockResolvedValue({ status: 'ready', download_url: 'https://cdn.higgsfield.ai/video.mp4' })
-}))
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { checkJobStatus } from '../src/lib/higgsfield.js'
 
 describe('higgsfield', () => {
-  it('returns ready status with download url', async () => {
+  beforeEach(() => {
     process.env.HIGGSFIELD_API_KEY = 'test-key'
+    process.env.HIGGSFIELD_API_SECRET = 'test-secret'
+  })
+
+  it('returns completed status with video url', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ status: 'completed', video: { url: 'https://cdn.higgsfield.ai/video.mp4' } })
+    }))
+
     const result = await checkJobStatus('job-123')
-    expect(result.status).toBe('ready')
-    expect(result.downloadUrl).toBe('https://cdn.higgsfield.ai/video.mp4')
+    expect(result.status).toBe('completed')
+    expect(result.videoUrl).toBe('https://cdn.higgsfield.ai/video.mp4')
+  })
+
+  it('returns failed status with no video url', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ status: 'failed' })
+    }))
+
+    const result = await checkJobStatus('job-456')
+    expect(result.status).toBe('failed')
+    expect(result.videoUrl).toBeUndefined()
   })
 })

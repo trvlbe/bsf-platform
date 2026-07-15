@@ -22,6 +22,9 @@ const mockMessagesCreate = vi.fn().mockResolvedValue({
   content: [{
     type: 'text',
     text: JSON.stringify({
+      bpm: 130,
+      key: 'A minor',
+      timeSignature: '4/4',
       sections: [
         { label: 'intro', startSecs: 0, durationSecs: 15, description: 'instrumental' },
         { label: 'verse 1', startSecs: 15, durationSecs: 30, description: 'vocals enter' },
@@ -48,9 +51,16 @@ describe('analyzeMusicUrl — Spotify path', () => {
 
   it('extracts Spotify track ID from URL', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ access_token: 'sp-token' }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ tempo: 128.4, duration_ms: 213000, key: 7, mode: 1, time_signature: 4, energy: 0.8, valence: 0.6, danceability: 0.7 }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ sections: [{ start: 0, duration: 15, loudness: -5.2, tempo: 128 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'sp-token' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          name: 'Think About Us',
+          artists: [{ name: 'Blue Sky Fable' }],
+          duration_ms: 213000,
+          album: { name: 'Singles' },
+        }),
+      })
     vi.stubGlobal('fetch', fetchMock)
 
     const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')
@@ -61,12 +71,22 @@ describe('analyzeMusicUrl — Spotify path', () => {
     )
 
     expect(result.source).toBe('spotify')
-    expect(result.bpm).toBe(128)
-    expect(result.key).toBe('G major')
-    expect(result.timeSignature).toBe('4/4')
     expect(result.durationSecs).toBe(213)
-    expect(result.sections).toHaveLength(1)
-    expect(result.energyNotes).toContain('80%')
+    expect(result.bpm).toBe(130)
+    expect(result.key).toBe('A minor')
+    expect(result.timeSignature).toBe('4/4')
+    expect(result.sections).toHaveLength(2)
+    expect(result.hookMoment).toBe('chorus at ~0:45')
+  })
+
+  it('throws when the Spotify token request fails', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 401 })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')
+    await expect(
+      analyzeMusicUrl('https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh', 'google-token', 'anthropic-key'),
+    ).rejects.toThrow('Spotify token error 401')
   })
 })
 

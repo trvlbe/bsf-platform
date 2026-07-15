@@ -4,3 +4,6 @@ dist/
 *.env.local
 backend/.env
 frontend/.env
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
