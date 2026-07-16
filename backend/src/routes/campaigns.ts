@@ -3,7 +3,9 @@ import { z } from 'zod'
 import { prisma } from '../lib/db.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { fetchDocAsText, listFolderFiles, drivePublicUrl } from '../lib/driveClient.js'
+import type { DriveFile } from '../lib/driveClient.js'
 import { createVideoJob } from '../lib/higgsfield.js'
+import { runEditorAgent } from '../agents/editorAgent.js'
 import { parseLyricsFromRawText } from '../lib/claudeLyricsParser.js'
 import { generateCampaign } from '../commands/generate.js'
 import { pushCampaign } from '../commands/push.js'
@@ -232,33 +234,6 @@ campaignsRouter.get('/:id/posts/:postId', async (req, res) => {
   res.json(post)
 })
 
-campaignsRouter.post('/:id/posts/:postId/generate-video', async (req, res) => {
-  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
-  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
-  const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
-  if (!post) { res.status(404).json({ error: 'Post not found' }); return }
-  if (!post.assetFileId) {
-    res.status(400).json({ error: 'No image asset selected — pick one from the asset list first' }); return
-  }
-  if (!post.assetMimeType?.startsWith('image/')) {
-    res.status(400).json({ error: 'Selected asset is not an image' }); return
-  }
-  const { prompt } = req.body as { prompt?: string }
-  const motionPrompt = prompt?.trim() ||
-    `Cinematic atmospheric animation. ${post.caption.replace(/[^\w\s,.!?]/g, '').slice(0, 100)}`
-  try {
-    const imageUrl = drivePublicUrl(post.assetFileId)
-    const { requestId } = await createVideoJob(imageUrl, motionPrompt)
-    const updated = await prisma.post.update({
-      where: { id: post.id },
-      data: { videoJobId: requestId, videoStatus: 'PENDING', videoUrl: null },
-    })
-    res.json(updated)
-  } catch (err: any) {
-    res.status(500).json({ error: 'Video generation failed', message: err.message })
-  }
-})
-
 const UpdatePostSchema = z.object({
   caption: z.string().min(1).max(2200).optional(),
   hashtags: z.array(z.string()).optional(),
@@ -280,6 +255,86 @@ campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
     res.json(post)
   } catch (err: any) {
     res.status(500).json({ error: 'Internal error', message: err.message })
+  }
+})
+
+async function runEditorWorkflow(postId: string, campaignId: string, userId: string, feedback?: string) {
+  await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'PENDING' } })
+
+  try {
+    const [campaign, user, post] = await Promise.all([
+      prisma.campaign.findFirst({ where: { id: campaignId, userId } }),
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.post.findFirst({ where: { id: postId, campaignId } }),
+    ])
+    if (!campaign) throw new Error('Campaign not found')
+    if (!post) throw new Error('Post not found')
+
+    let anthropicApiKey: string | undefined
+    try {
+      anthropicApiKey = user?.anthropicApiKey ? decrypt(user.anthropicApiKey) : process.env.ANTHROPIC_API_KEY
+    } catch {
+      throw new Error('Anthropic API key unreadable — re-save in Settings')
+    }
+    if (!anthropicApiKey) throw new Error('Anthropic API key not configured')
+
+    let assets: DriveFile[] = []
+    if (campaign.assetsFolderUrl && user?.accessToken) {
+      const allAssets = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+      assets = allAssets.filter(a => a.mimeType.startsWith('image/'))
+    }
+
+    const decision = await runEditorAgent({
+      lyricSource: post.lyricSource,
+      songAnalysis: campaign.songAnalysis as any,
+      caption: post.caption,
+      hashtags: post.hashtags,
+      directionBrief: post.directionBrief,
+      assets,
+      previousPrompt: post.editorPrompt,
+      feedback,
+    }, anthropicApiKey)
+
+    if (!decision.assetFileId) {
+      return await prisma.post.update({
+        where: { id: postId },
+        data: { editorStatus: 'READY', assetFileId: null, assetMimeType: null, editorPrompt: null, editorReasoning: decision.reasoning },
+      })
+    }
+
+    const chosenAsset = assets.find(a => a.id === decision.assetFileId)
+    const imageUrl = drivePublicUrl(decision.assetFileId)
+    const { requestId } = await createVideoJob(imageUrl, decision.motionPrompt!)
+
+    return await prisma.post.update({
+      where: { id: postId },
+      data: {
+        assetFileId: decision.assetFileId,
+        assetMimeType: chosenAsset?.mimeType ?? null,
+        editorPrompt: decision.motionPrompt,
+        editorReasoning: decision.reasoning,
+        videoJobId: requestId,
+        videoStatus: 'PENDING',
+        videoUrl: null,
+        editorStatus: 'PENDING',
+      },
+    })
+  } catch {
+    return await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'FAILED' } })
+  }
+}
+
+campaignsRouter.post('/:id/posts/:postId/send-to-editor', async (req, res) => {
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
+  if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+  if (!post.directionAccepted) { res.status(400).json({ error: 'Direction must be accepted first' }); return }
+  try {
+    const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!)
+    res.json(updated)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Send to editor failed', message: err.message })
   }
 })
 

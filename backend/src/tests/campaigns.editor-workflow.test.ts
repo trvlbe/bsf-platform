@@ -1,0 +1,88 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import express from 'express'
+import request from 'supertest'
+
+const mockCampaign = { id: 'camp-1', userId: 'user-1', assetsFolderUrl: 'https://drive.google.com/drive/folders/abc', songAnalysis: null, lyricsMarkdown: null }
+const mockUser = { id: 'user-1', accessToken: 'drive-token', anthropicApiKey: null }
+const basePost = {
+  id: 'post-1', campaignId: 'camp-1', caption: 'c', hashtags: [], lyricSource: 'lyric',
+  directionBrief: 'brief', directionAccepted: new Date().toISOString(), editorStatus: 'NOT_STARTED',
+}
+
+const mockUpdate = vi.fn().mockImplementation(({ data }) => Promise.resolve({ ...basePost, ...data }))
+
+vi.mock('../lib/db.js', () => ({
+  prisma: {
+    campaign: { findFirst: vi.fn().mockResolvedValue(mockCampaign) },
+    user: { findUnique: vi.fn().mockResolvedValue(mockUser) },
+    post: { findFirst: vi.fn().mockResolvedValue(basePost), update: mockUpdate },
+  },
+}))
+vi.mock('../lib/driveClient.js', () => ({
+  listFolderFiles: vi.fn().mockResolvedValue([{ id: 'file-1', name: 'a.jpg', mimeType: 'image/jpeg', webViewLink: 'x' }]),
+  drivePublicUrl: vi.fn().mockReturnValue('https://drive.example/file-1'),
+  fetchDocAsText: vi.fn(),
+}))
+vi.mock('../lib/higgsfield.js', () => ({
+  createVideoJob: vi.fn().mockResolvedValue({ requestId: 'job-1' }),
+}))
+vi.mock('../agents/editorAgent.js', () => ({
+  runEditorAgent: vi.fn(),
+}))
+
+const { campaignsRouter } = await import('../routes/campaigns.js')
+const { runEditorAgent } = await import('../agents/editorAgent.js')
+
+function buildApp() {
+  const app = express()
+  app.use(express.json())
+  app.use((req, _res, next) => { req.session = { userId: 'user-1' } as any; next() })
+  app.use('/campaigns', campaignsRouter)
+  return app
+}
+
+beforeEach(() => { vi.clearAllMocks(); process.env.ANTHROPIC_API_KEY = 'env-key' })
+
+describe('POST /:id/posts/:postId/send-to-editor', () => {
+  it('400s when directionAccepted is not set', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValueOnce({ ...basePost, directionAccepted: null })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(400)
+  })
+
+  it('sets editorStatus READY with no video job when the agent picks no asset', async () => {
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'no fit' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('READY')
+    expect(res.body.assetFileId).toBeNull()
+  })
+
+  it('calls createVideoJob and sets editorStatus/videoStatus PENDING when the agent picks an asset', async () => {
+    const { createVideoJob } = await import('../lib/higgsfield.js')
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: 'file-1', motionPrompt: 'slow zoom', reasoning: 'good fit' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(createVideoJob).toHaveBeenCalledWith('https://drive.example/file-1', 'slow zoom')
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('PENDING')
+    expect(res.body.videoStatus).toBe('PENDING')
+    expect(res.body.assetFileId).toBe('file-1')
+  })
+
+  it('sets editorStatus FAILED when the agent call throws', async () => {
+    ;(runEditorAgent as any).mockRejectedValue(new Error('rate limited'))
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('FAILED')
+  })
+
+  it('sets editorStatus FAILED when createVideoJob throws', async () => {
+    const { createVideoJob } = await import('../lib/higgsfield.js')
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: 'file-1', motionPrompt: 'slow zoom', reasoning: 'good fit' })
+    ;(createVideoJob as any).mockRejectedValueOnce(new Error('bad credentials'))
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('FAILED')
+  })
+})
