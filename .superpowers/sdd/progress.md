@@ -105,3 +105,11 @@ Worktree: .worktrees/post-editor-agent-workflow (branch post-editor-agent-workfl
 | 9 — PostEditor.tsx full rewrite, Stage 1 (Direction Review) | complete | 79cabfd, plan fix 5ea4e24, review approved | caught+fixed real bug in the brief's own verbatim code: footer dismiss button and Stage-1-edit Cancel button both rendered "Cancel" simultaneously, breaking getByText — fixed by renaming footer button to "Close" (narrow, verified). Plan file corrected for Task 11 too (would have reintroduced the same bug) |
 | 10 — PostEditor.tsx Stage 2 (Send to Editor Agent) + polling | complete | 034f9b6, review approved | minor: PENDING test doesn't explicitly assert api.getPost invocation; no test for PENDING→READY/FAILED transition (reasonable, Stage 3 doesn't exist until Task 11) |
 | 11 — PostEditor.tsx Stage 3 (Review) + Approve gate + Regenerate — FINAL TASK | complete | 61bf2d2, review approved | minor: no test for caption-only fallback message (plan-level gap, not implementer's); regenerate feedback input has no maxLength/a11y label |
+
+## Final Whole-Branch Review (2026-07-16)
+Reviewed full diff (969df69..eb906fa, 27 commits) on opus. Found 2 Important cross-task issues neither task-scoped review could see:
+- Regenerate-into-caption-only left a stale videoUrl/videoStatus/videoJobId from a prior asset-based attempt, rendering an old video under the "caption-only" message in Stage 3.
+- Agent-chosen assetFileId was used to build a Drive URL + submit a Higgsfield job without validating it exists in the campaign's asset list (agent hallucination/steering risk).
+Both fixed in eb906fa with 2 new discriminating regression tests (verified by re-review to actually exercise the fixes, not pass trivially). Full backend suite: 24 files/90 tests passing. Frontend: 8 files/33 tests passing. **Ready to merge: Yes.**
+
+All 12 tasks (1, 1b, 2-11) complete and individually approved. Branch: post-editor-agent-workflow. Worktree: .worktrees/post-editor-agent-workflow.
