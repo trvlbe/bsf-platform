@@ -51,3 +51,52 @@ describe('Campaign schema - creative layer fields', () => {
     expect(c).toBeTruthy()
   })
 })
+
+describe('Post schema — editor workflow fields', () => {
+  let campaignId: string
+
+  beforeAll(async () => {
+    const user = await prisma.user.findFirst()
+    if (!user) throw new Error('No test user — run seed or create one first')
+    const c = await prisma.campaign.create({
+      data: {
+        userId: user.id,
+        slug: 'schema-test-editor-workflow',
+        title: 'Schema Test — Editor Workflow',
+        artist: 'Test',
+        label: 'Test',
+        releaseDate: new Date('2026-09-01'),
+        platforms: ['TIKTOK'],
+        brandTone: 'test',
+        brandIdentity: 'test',
+      }
+    })
+    campaignId = c.id
+  })
+
+  afterAll(async () => {
+    await prisma.post.deleteMany({ where: { campaignId } })
+    await prisma.campaign.deleteMany({ where: { slug: 'schema-test-editor-workflow' } })
+  })
+
+  it('creates a Post with directionBrief and defaults editorStatus to NOT_STARTED', async () => {
+    const post = await prisma.post.create({
+      data: {
+        campaignId,
+        platform: 'INSTAGRAM',
+        caption: 'test caption',
+        hashtags: [],
+        lyricSource: 'test lyric',
+        assetNote: 'test asset note',
+        directionBrief: 'test brief',
+        scheduledAt: new Date(),
+        dayOffset: 0,
+      },
+    })
+    expect(post.directionBrief).toBe('test brief')
+    expect(post.directionAccepted).toBeNull()
+    expect(post.editorStatus).toBe('NOT_STARTED')
+    expect(post.editorPrompt).toBeNull()
+    expect(post.editorReasoning).toBeNull()
+  })
+})

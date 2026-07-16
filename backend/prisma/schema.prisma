@@ -30,6 +30,13 @@ enum VideoStatus {
   FAILED
 }
 
+enum EditorStatus {
+  NOT_STARTED
+  PENDING
+  READY
+  FAILED
+}
+
 model User {
   id           String     @id @default(cuid())
   googleId     String     @unique
@@ -115,6 +122,11 @@ model Post {
   videoJobId  String?
   videoStatus VideoStatus?
   videoUrl    String?
+  directionBrief    String
+  directionAccepted DateTime?
+  editorStatus      EditorStatus @default(NOT_STARTED)
+  editorPrompt      String?
+  editorReasoning   String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
