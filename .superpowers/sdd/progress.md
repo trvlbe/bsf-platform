@@ -85,4 +85,12 @@ Plan: C:\Users\TJTravelbee\blue-sky-fable-agent\docs\superpowers\plans\2026-06-3
 | Task | Status | Commits |
 |------|--------|---------|
 | Rewrite higgsfield.ts to real API (platform.higgsfield.ai, Key auth, nested params, completed/failed statuses); drivePublicUrl() helper; strip bulk video submission from generate.ts; add get-post + generate-video routes; PostEditor video UI with polling; 30s poll scheduler in index.ts | complete | 235a7c7 | fix: higgsfield.test.ts was stale against the rewritten API contract — updated mocks (Key+Secret auth, `{status, video:{url}}` shape) |
-| Spotify analysis path migrated off deprecated audio-features/audio-analysis endpoints to single /v1/tracks call + Claude-inferred structure (matches Drive-file path); frontend tsconfig excludes test files from build | complete | (pending commit) | fix: musicAnalyzer.test.ts updated for new single-endpoint + Claude-inference contract; addresses prior "section 2 at undefineds" follow-up by removing the Spotify audio-analysis dependency entirely |
+| Spotify analysis path migrated off deprecated audio-features/audio-analysis endpoints to single /v1/tracks call + Claude-inferred structure (matches Drive-file path); frontend tsconfig excludes test files from build | complete | a7d9377 | fix: musicAnalyzer.test.ts updated for new single-endpoint + Claude-inference contract; addresses prior "section 2 at undefineds" follow-up by removing the Spotify audio-analysis dependency entirely |
+
+## Post Editor Direction Gate + Editor Agent Workflow (2026-07-16)
+Spec: docs/superpowers/specs/2026-07-15-post-editor-agent-workflow-design.md
+Plan: docs/superpowers/plans/2026-07-16-post-editor-agent-workflow.md
+Worktree: .worktrees/post-editor-agent-workflow (branch post-editor-agent-workflow)
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — Prisma schema: directionBrief/directionAccepted/editorStatus/editorPrompt/editorReasoning + hand-applied migration | complete | 655967d, review approved | minor: implementer's report miscounted new-vs-pre-existing test split (cosmetic); migration applied directly + prisma migrate resolve --applied due to pre-existing unrelated DB drift (session table from connect-pg-simple + historical column-default bookkeeping gaps — both confirmed benign, not caused by this task) |
