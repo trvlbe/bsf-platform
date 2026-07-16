@@ -1551,7 +1551,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
 
             {/* Footer */}
             <div className="px-6 py-4 border-t border-charcoal-100 flex items-center gap-3 shrink-0">
-              <Button variant="ghost" onClick={onClose} size="sm">Cancel</Button>
+              <Button variant="ghost" onClick={onClose} size="sm">Close</Button>
 
               <div className="ml-auto flex items-center gap-3 shrink-0">
                 {isApproved ? (
@@ -1588,6 +1588,8 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
   )
 }
 ```
+
+Note: the footer's dismiss button reads **"Close"**, not "Cancel" — Task 9's implementation renamed it during that task to resolve a genuine ambiguity bug (this same footer button and Stage 1's "Cancel" button on the direction-edit sub-form both rendered with the text "Cancel" simultaneously when editing direction, breaking `getByText('Cancel')` in tests). Task 11's own tests below use "Close" accordingly — do not revert this to "Cancel".
 
 Note: the `Approve` button's `disabled` here is only `approveMutation.isPending` — Task 11 adds the `editorStatus !== 'READY'` condition. Since `stage` is `1 | 2` in this task (nothing reaches a `READY`-equivalent state yet), leaving Approve's gating to Task 11 is correct and doesn't regress any test in this task.
 
@@ -1955,7 +1957,7 @@ Update the footer to add the feedback input + Regenerate button (stage 3 only), 
 ```tsx
             {/* Footer */}
             <div className="px-6 py-4 border-t border-charcoal-100 flex items-center gap-3 shrink-0">
-              <Button variant="ghost" onClick={onClose} size="sm">Cancel</Button>
+              <Button variant="ghost" onClick={onClose} size="sm">Close</Button>
 
               {stage === 3 && (
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -2005,6 +2007,8 @@ Update the footer to add the feedback input + Regenerate button (stage 3 only), 
               </div>
             </div>
 ```
+
+Note: the footer's dismiss button reads **"Close"**, not "Cancel". Task 9 renamed it from "Cancel" during that task to fix a real ambiguity bug — this same persistent footer button and Stage 1's direction-edit "Cancel" button both rendered with the text "Cancel" simultaneously while editing direction, breaking `getByText('Cancel')` in tests. Use "Close" here; do not revert to "Cancel".
 
 - [ ] **Step 4: Run — verify it passes.**
 
