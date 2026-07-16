@@ -86,3 +86,34 @@ describe('POST /:id/posts/:postId/send-to-editor', () => {
     expect(res.body.editorStatus).toBe('FAILED')
   })
 })
+
+describe('POST /:id/posts/:postId/regenerate', () => {
+  it('400s when editorStatus is NOT_STARTED (no prior attempt)', async () => {
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(res.status).toBe(400)
+  })
+
+  it('400s when editorStatus is PENDING (attempt in flight)', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValueOnce({ ...basePost, editorStatus: 'PENDING' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(res.status).toBe(400)
+  })
+
+  it('reruns the editor agent with feedback when editorStatus is READY', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({ ...basePost, editorStatus: 'READY', editorPrompt: 'slow zoom' })
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: 'file-1', motionPrompt: 'handheld pan', reasoning: 'more movement' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({ feedback: 'Too static' })
+    expect(res.status).toBe(200)
+    expect(runEditorAgent).toHaveBeenCalledWith(expect.objectContaining({ feedback: 'Too static', previousPrompt: 'slow zoom' }), expect.any(String))
+  })
+
+  it('reruns when editorStatus is FAILED', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({ ...basePost, editorStatus: 'FAILED' })
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'ok' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(res.status).toBe(200)
+  })
+})

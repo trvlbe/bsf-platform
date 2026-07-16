@@ -338,6 +338,26 @@ campaignsRouter.post('/:id/posts/:postId/send-to-editor', async (req, res) => {
   }
 })
 
+const RegenerateSchema = z.object({ feedback: z.string().optional() })
+
+campaignsRouter.post('/:id/posts/:postId/regenerate', async (req, res) => {
+  const parsed = RegenerateSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
+  const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
+  if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
+  if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+  if (post.editorStatus !== 'READY' && post.editorStatus !== 'FAILED') {
+    res.status(400).json({ error: 'No prior editor attempt to regenerate from' }); return
+  }
+  try {
+    const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!, parsed.data.feedback)
+    res.json(updated)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Regenerate failed', message: err.message })
+  }
+})
+
 const UpdateDirectionSchema = z.object({
   caption: z.string().min(1).max(2200).optional(),
   hashtags: z.array(z.string()).optional(),
