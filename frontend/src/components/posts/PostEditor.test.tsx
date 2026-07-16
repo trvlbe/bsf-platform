@@ -13,6 +13,7 @@ vi.mock('../../lib/api.js', () => ({
     pushPost: vi.fn().mockResolvedValue({}),
     sendToEditor: vi.fn().mockResolvedValue({}),
     getPost: vi.fn(),
+    regeneratePost: vi.fn().mockResolvedValue({}),
   },
 }))
 
@@ -40,6 +41,17 @@ const BASE_POST = {
 
 const STAGE2_POST = { ...BASE_POST, directionAccepted: '2026-07-16T00:00:00.000Z', editorStatus: 'NOT_STARTED' }
 const STAGE2_PENDING_POST = { ...STAGE2_POST, editorStatus: 'PENDING' }
+
+const STAGE3_READY_POST = {
+  ...BASE_POST,
+  directionAccepted: '2026-07-16T00:00:00.000Z',
+  editorStatus: 'READY',
+  editorReasoning: 'Best fits the empty-chairs imagery in the brief.',
+  editorPrompt: 'Slow zoom into empty chairs, golden hour haze',
+  assetFileId: 'file-1',
+  assetMimeType: 'image/jpeg',
+}
+const STAGE3_FAILED_POST = { ...BASE_POST, directionAccepted: '2026-07-16T00:00:00.000Z', editorStatus: 'FAILED' }
 
 function wrap(ui: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -103,5 +115,71 @@ describe('PostEditor — Stage 2: Send to Editor', () => {
     render(wrap(<PostEditor post={STAGE2_PENDING_POST} campaignId="camp-1" onClose={() => {}} />))
     expect(screen.getByText('Editor agent is working…')).toBeInTheDocument()
     expect(screen.queryByText('Send to Editor Agent →')).not.toBeInTheDocument()
+  })
+})
+
+describe('PostEditor — Stage 3: Review', () => {
+  it('shows the reasoning, motion prompt, and Regenerate control when READY', () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Best fits the empty-chairs imagery in the brief.')).toBeInTheDocument()
+    expect(screen.getByText('Slow zoom into empty chairs, golden hour haze')).toBeInTheDocument()
+    expect(screen.getByText('Regenerate ↺')).toBeInTheDocument()
+  })
+
+  it('shows a failure message and only Regenerate when FAILED', () => {
+    render(wrap(<PostEditor post={STAGE3_FAILED_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText(/Editor agent failed/)).toBeInTheDocument()
+    expect(screen.getByText('Regenerate ↺')).toBeInTheDocument()
+    expect(screen.getByText('Approve')).toBeDisabled()
+  })
+
+  it('calls regeneratePost with feedback text when Regenerate is clicked', async () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    fireEvent.change(screen.getByPlaceholderText('Feedback for regenerate (optional)'), { target: { value: 'Too static — add movement' } })
+    fireEvent.click(screen.getByText('Regenerate ↺'))
+    await waitFor(() => expect(api.regeneratePost).toHaveBeenCalledWith('camp-1', 'post-1', 'Too static — add movement'))
+  })
+
+  it('shows Approve button when post is not approved', () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Approve')).toBeInTheDocument()
+  })
+
+  it('Push button is disabled when post is not approved', () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Push →')).toBeDisabled()
+  })
+
+  it('calls approvePost when Approve clicked', async () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    fireEvent.click(screen.getByText('Approve'))
+    await waitFor(() => expect(api.approvePost).toHaveBeenCalledWith('camp-1', 'post-1'))
+  })
+
+  it('shows "Approved ✓" badge when post.approved is true', () => {
+    render(wrap(<PostEditor post={{ ...STAGE3_READY_POST, approved: true }} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Approved ✓')).toBeInTheDocument()
+  })
+
+  it('Push button is enabled when post.approved is true', () => {
+    render(wrap(<PostEditor post={{ ...STAGE3_READY_POST, approved: true }} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Push →')).not.toBeDisabled()
+  })
+
+  it('does not show Push button when post already has a bufferId', () => {
+    render(wrap(<PostEditor post={{ ...STAGE3_READY_POST, approved: true, bufferId: 'buf-123' }} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.queryByText('Push →')).not.toBeInTheDocument()
+  })
+})
+
+describe('PostEditor — Approve gate', () => {
+  it('disables Approve when editorStatus is not READY', () => {
+    render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Approve')).toBeDisabled()
+  })
+
+  it('enables Approve when editorStatus is READY', () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Approve')).not.toBeDisabled()
   })
 })

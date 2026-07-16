@@ -19,6 +19,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
   const [hashtags, setHashtags] = useState<string>(initialPost.hashtags.join(', '))
   const [directionBrief, setDirectionBrief] = useState<string>(initialPost.directionBrief)
   const [isEditingDirection, setIsEditingDirection] = useState(false)
+  const [feedback, setFeedback] = useState('')
 
   const stage: 1 | 2 | 3 = !livePost.directionAccepted
     ? 1
@@ -58,6 +59,16 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
       qc.invalidateQueries({ queryKey: ['posts', campaignId] })
     },
     onError: (e: Error) => alert(`Send to editor failed: ${e.message}`),
+  })
+
+  const regenerateMutation = useMutation({
+    mutationFn: () => api.regeneratePost(campaignId, initialPost.id, feedback.trim() || undefined),
+    onSuccess: (updated) => {
+      setLivePost(updated)
+      setFeedback('')
+      qc.invalidateQueries({ queryKey: ['posts', campaignId] })
+    },
+    onError: (e: Error) => alert(`Regenerate failed: ${e.message}`),
   })
 
   const saveMutation = useMutation({
@@ -124,6 +135,29 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                 assetMimeType={livePost.assetMimeType}
               />
             </div>
+            {stage === 3 && (
+              <div className="px-4 pb-6 border-t border-charcoal-100 pt-4">
+                <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-2">
+                  Editor Agent
+                </div>
+                {livePost.editorStatus === 'READY' && (
+                  <>
+                    <p className="text-xs text-charcoal-600 mb-2">{livePost.editorReasoning}</p>
+                    {livePost.editorPrompt && (
+                      <div className="text-xs text-charcoal-500 bg-white border border-charcoal-100 rounded p-2 font-mono">
+                        {livePost.editorPrompt}
+                      </div>
+                    )}
+                    {!livePost.assetFileId && (
+                      <p className="text-xs text-charcoal-400 mt-2">Caption-only post — no image asset fit the direction.</p>
+                    )}
+                  </>
+                )}
+                {livePost.editorStatus === 'FAILED' && (
+                  <p className="text-xs text-danger">Editor agent failed — try regenerating.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right: direction / content + actions */}
@@ -274,6 +308,25 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
             <div className="px-6 py-4 border-t border-charcoal-100 flex items-center gap-3 shrink-0">
               <Button variant="ghost" onClick={onClose} size="sm">Close</Button>
 
+              {stage === 3 && (
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <input
+                    value={feedback}
+                    onChange={e => setFeedback(e.target.value)}
+                    placeholder="Feedback for regenerate (optional)"
+                    className="flex-1 min-w-0 border border-charcoal-200 rounded px-3 py-2 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => regenerateMutation.mutate()}
+                    disabled={regenerateMutation.isPending}
+                  >
+                    {regenerateMutation.isPending ? 'Regenerating…' : 'Regenerate ↺'}
+                  </Button>
+                </div>
+              )}
+
               <div className="ml-auto flex items-center gap-3 shrink-0">
                 {isApproved ? (
                   <span className="text-sm font-medium text-success flex items-center gap-1.5">
@@ -285,7 +338,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                     variant="secondary"
                     size="sm"
                     onClick={() => approveMutation.mutate()}
-                    disabled={approveMutation.isPending}
+                    disabled={approveMutation.isPending || livePost.editorStatus !== 'READY'}
                   >
                     {approveMutation.isPending ? 'Approving...' : 'Approve'}
                   </Button>
