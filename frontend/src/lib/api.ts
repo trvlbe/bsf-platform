@@ -78,8 +78,12 @@ export const api = {
     req<any>(`/campaigns/${campaignId}/posts/${postId}`, { method: 'PATCH', body: JSON.stringify({ approved: true }) }),
   pushPost: (campaignId: string, postId: string) =>
     req<any>(`/campaigns/${campaignId}/posts/${postId}/push`, { method: 'POST' }),
-  generatePostVideo: (campaignId: string, postId: string, prompt?: string) =>
-    req<any>(`/campaigns/${campaignId}/posts/${postId}/generate-video`, { method: 'POST', body: JSON.stringify({ prompt }) }),
+  updateDirection: (campaignId: string, postId: string, data: { caption?: string; hashtags?: string[]; directionBrief?: string }) =>
+    req<any>(`/campaigns/${campaignId}/posts/${postId}/direction`, { method: 'PATCH', body: JSON.stringify(data) }),
+  sendToEditor: (campaignId: string, postId: string) =>
+    req<any>(`/campaigns/${campaignId}/posts/${postId}/send-to-editor`, { method: 'POST' }),
+  regeneratePost: (campaignId: string, postId: string, feedback?: string) =>
+    req<any>(`/campaigns/${campaignId}/posts/${postId}/regenerate`, { method: 'POST', body: JSON.stringify({ feedback }) }),
 
   fetchDriveDoc: (url: string) => req<{ text: string }>(`/drive/doc?url=${encodeURIComponent(url)}`),
   parseLyrics: (docUrl: string) => req<{ lyricsMarkdown: string }>('/drive/parse-lyrics', { method: 'POST', body: JSON.stringify({ docUrl }) }),
