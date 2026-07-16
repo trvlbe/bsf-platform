@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { Button } from '../ui/Button.js'
 import { PlatformPreview } from './PlatformPreview.js'
@@ -20,7 +20,11 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
   const [directionBrief, setDirectionBrief] = useState<string>(initialPost.directionBrief)
   const [isEditingDirection, setIsEditingDirection] = useState(false)
 
-  const stage: 1 | 2 = livePost.directionAccepted ? 2 : 1
+  const stage: 1 | 2 | 3 = !livePost.directionAccepted
+    ? 1
+    : (livePost.editorStatus === 'READY' || livePost.editorStatus === 'FAILED')
+      ? 3
+      : 2
 
   const acceptDirectionMutation = useMutation({
     mutationFn: (edited: boolean) =>
@@ -33,6 +37,27 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
       qc.invalidateQueries({ queryKey: ['posts', campaignId] })
     },
     onError: (e: Error) => alert(`Accepting direction failed: ${e.message}`),
+  })
+
+  const isEditorPending = livePost.editorStatus === 'PENDING'
+
+  const { data: polledPost } = useQuery({
+    queryKey: ['post', campaignId, initialPost.id],
+    queryFn: () => api.getPost(campaignId, initialPost.id),
+    refetchInterval: isEditorPending ? 3000 : false,
+    enabled: isEditorPending,
+  })
+  useEffect(() => {
+    if (polledPost) setLivePost(polledPost)
+  }, [polledPost])
+
+  const sendToEditorMutation = useMutation({
+    mutationFn: () => api.sendToEditor(campaignId, initialPost.id),
+    onSuccess: (updated) => {
+      setLivePost(updated)
+      qc.invalidateQueries({ queryKey: ['posts', campaignId] })
+    },
+    onError: (e: Error) => alert(`Send to editor failed: ${e.message}`),
   })
 
   const saveMutation = useMutation({
@@ -170,6 +195,29 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                         <Button size="sm" variant="ghost" onClick={() => setIsEditingDirection(true)}>Edit</Button>
                       </div>
                     </div>
+                  )}
+                </div>
+              )}
+
+              {stage === 2 && (
+                <div className="border border-charcoal-100 rounded p-4 bg-charcoal-050">
+                  <div className="font-display text-xs tracking-widest uppercase text-charcoal-400 mb-2">
+                    Direction (accepted)
+                  </div>
+                  <div className="text-sm text-charcoal-800 whitespace-pre-wrap mb-3">{livePost.directionBrief}</div>
+                  {isEditorPending ? (
+                    <div className="flex items-center gap-2 text-sm text-indigo-600">
+                      <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                      Editor agent is working…
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => sendToEditorMutation.mutate()}
+                      disabled={sendToEditorMutation.isPending}
+                    >
+                      {sendToEditorMutation.isPending ? 'Sending…' : 'Send to Editor Agent →'}
+                    </Button>
                   )}
                 </div>
               )}

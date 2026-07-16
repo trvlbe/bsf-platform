@@ -11,6 +11,8 @@ vi.mock('../../lib/api.js', () => ({
     updateDirection: vi.fn().mockResolvedValue({}),
     approvePost: vi.fn().mockResolvedValue({ approved: true }),
     pushPost: vi.fn().mockResolvedValue({}),
+    sendToEditor: vi.fn().mockResolvedValue({}),
+    getPost: vi.fn(),
   },
 }))
 
@@ -35,6 +37,9 @@ const BASE_POST = {
   videoUrl: null as string | null,
   videoStatus: null as string | null,
 }
+
+const STAGE2_POST = { ...BASE_POST, directionAccepted: '2026-07-16T00:00:00.000Z', editorStatus: 'NOT_STARTED' }
+const STAGE2_PENDING_POST = { ...STAGE2_POST, editorStatus: 'PENDING' }
 
 function wrap(ui: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -75,5 +80,28 @@ describe('PostEditor — Stage 1: Direction Review', () => {
       hashtags: ['#music', '#newrelease'],
       directionBrief: 'Golden hour, empty chairs, quiet longing',
     }))
+  })
+})
+
+describe('PostEditor — Stage 2: Send to Editor', () => {
+  it('renders the accepted directionBrief read-only with a Send to Editor Agent button', () => {
+    render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Golden hour, empty chairs, quiet longing')).toBeInTheDocument()
+    expect(screen.getByText('Send to Editor Agent →')).toBeInTheDocument()
+    expect(screen.queryByText('Accept')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
+  })
+
+  it('calls sendToEditor when the button is clicked', async () => {
+    render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    fireEvent.click(screen.getByText('Send to Editor Agent →'))
+    await waitFor(() => expect(api.sendToEditor).toHaveBeenCalledWith('camp-1', 'post-1'))
+  })
+
+  it('shows a working indicator and hides the Send button while editorStatus is PENDING', () => {
+    ;(api.getPost as any).mockResolvedValue(STAGE2_PENDING_POST)
+    render(wrap(<PostEditor post={STAGE2_PENDING_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Editor agent is working…')).toBeInTheDocument()
+    expect(screen.queryByText('Send to Editor Agent →')).not.toBeInTheDocument()
   })
 })
