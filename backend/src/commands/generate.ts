@@ -74,6 +74,7 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
           hashtags: draft.hashtags,
           lyricSource: draft.lyricSource,
           assetNote: draft.assetNote,
+          directionBrief: draft.assetNote,
           scheduledAt: slot.scheduledAt,
           dayOffset,
         })

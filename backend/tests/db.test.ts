@@ -69,6 +69,7 @@ describe('database models', () => {
         hashtags: ['#bsf', '#indiemusic'],
         lyricSource: 'I keep thinking about us',
         assetNote: 'Cover art',
+        directionBrief: 'Cover art',
         scheduledAt: new Date('2026-08-25T19:00:00Z'),
         dayOffset: -7,
       }
@@ -99,6 +100,7 @@ describe('database models', () => {
         hashtags: [],
         lyricSource: 'x',
         assetNote: 'x',
+        directionBrief: 'x',
         scheduledAt: new Date(),
         dayOffset: 0,
       }
