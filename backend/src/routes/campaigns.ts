@@ -305,11 +305,21 @@ async function runEditorWorkflow(postId: string, campaignId: string, userId: str
     if (!decision.assetFileId) {
       return await prisma.post.update({
         where: { id: postId },
-        data: { editorStatus: 'READY', assetFileId: null, assetMimeType: null, editorPrompt: null, editorReasoning: decision.reasoning },
+        data: {
+          editorStatus: 'READY',
+          assetFileId: null,
+          assetMimeType: null,
+          editorPrompt: null,
+          editorReasoning: decision.reasoning,
+          videoUrl: null,
+          videoStatus: null,
+          videoJobId: null,
+        },
       })
     }
 
     const chosenAsset = assets.find(a => a.id === decision.assetFileId)
+    if (!chosenAsset) throw new Error('Editor agent chose an unknown asset')
     const imageUrl = drivePublicUrl(decision.assetFileId)
     const { requestId } = await createVideoJob(imageUrl, decision.motionPrompt!)
 

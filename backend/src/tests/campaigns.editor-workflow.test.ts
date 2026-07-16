@@ -85,6 +85,13 @@ describe('POST /:id/posts/:postId/send-to-editor', () => {
     expect(res.status).toBe(200)
     expect(res.body.editorStatus).toBe('FAILED')
   })
+
+  it('sets editorStatus FAILED when the agent chooses an assetFileId not in the campaign asset list', async () => {
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: 'file-does-not-exist', motionPrompt: 'slow zoom', reasoning: 'good fit' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('FAILED')
+  })
 })
 
 describe('POST /:id/posts/:postId/regenerate', () => {
@@ -115,5 +122,21 @@ describe('POST /:id/posts/:postId/regenerate', () => {
     ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'ok' })
     const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
     expect(res.status).toBe(200)
+  })
+
+  it('clears a stale video when regenerating into a caption-only decision', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({
+      ...basePost,
+      editorStatus: 'READY',
+      videoUrl: 'https://old-video.mp4',
+      videoStatus: 'READY',
+    })
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'caption only now' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(res.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ videoUrl: null, videoStatus: null, videoJobId: null }),
+    }))
   })
 })
