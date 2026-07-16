@@ -94,3 +94,4 @@ Worktree: .worktrees/post-editor-agent-workflow (branch post-editor-agent-workfl
 | Task | Status | Commits |
 |------|--------|---------|
 | 1 — Prisma schema: directionBrief/directionAccepted/editorStatus/editorPrompt/editorReasoning + hand-applied migration | complete | 655967d, review approved | minor: implementer's report miscounted new-vs-pre-existing test split (cosmetic); migration applied directly + prisma migrate resolve --applied due to pre-existing unrelated DB drift (session table from connect-pg-simple + historical column-default bookkeeping gaps — both confirmed benign, not caused by this task) |
+| 1b — Seed directionBrief in generateCampaign + fix db.test.ts fixtures | complete | 3e46ac9, fix 3bc3662 (campaigns.post-approve.test.ts also needed directionBrief in 4 fixtures — under-scoped in the original brief, caught by task review before it could break a later task), review approved |
