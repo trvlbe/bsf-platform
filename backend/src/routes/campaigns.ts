@@ -247,6 +247,13 @@ campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
   const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, userId: req.session.userId! } })
   if (!campaign) { res.status(404).json({ error: 'Not found' }); return }
+  if (parsed.data.approved === true) {
+    const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
+    if (!post) { res.status(404).json({ error: 'Post not found' }); return }
+    if (post.editorStatus !== 'READY') {
+      res.status(400).json({ error: 'Editor agent must produce a finished output before approving' }); return
+    }
+  }
   try {
     const post = await prisma.post.update({
       where: { id: req.params.postId, campaignId: campaign.id },

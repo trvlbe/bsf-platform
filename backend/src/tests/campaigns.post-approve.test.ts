@@ -32,6 +32,9 @@ let testPostId: string
 let pushCampaignId: string
 let approvedPostId: string
 let unapprovedPostId: string
+let notStartedGatePostId: string
+let pendingGatePostId: string
+let readyGatePostId: string
 
 beforeAll(async () => {
   // Find or create a test user
@@ -76,6 +79,7 @@ beforeAll(async () => {
       directionBrief: 'Test direction brief',
       scheduledAt: new Date('2026-09-01'),
       dayOffset: 0,
+      editorStatus: 'READY',
     },
   })
   testPostId = post.id
@@ -131,6 +135,54 @@ beforeAll(async () => {
     },
   })
   unapprovedPostId = unapprovedPost.id
+
+  const notStartedGatePost = await prisma.post.create({
+    data: {
+      campaignId: pushCampaignId,
+      platform: 'TIKTOK',
+      caption: 'Gate test — not started',
+      hashtags: ['#gate'],
+      lyricSource: 'Gate lyric',
+      assetNote: 'Gate asset note',
+      directionBrief: 'Gate direction brief',
+      scheduledAt: new Date('2026-10-03'),
+      dayOffset: 2,
+      editorStatus: 'NOT_STARTED',
+    },
+  })
+  notStartedGatePostId = notStartedGatePost.id
+
+  const pendingGatePost = await prisma.post.create({
+    data: {
+      campaignId: pushCampaignId,
+      platform: 'TIKTOK',
+      caption: 'Gate test — pending',
+      hashtags: ['#gate'],
+      lyricSource: 'Gate lyric',
+      assetNote: 'Gate asset note',
+      directionBrief: 'Gate direction brief',
+      scheduledAt: new Date('2026-10-04'),
+      dayOffset: 3,
+      editorStatus: 'PENDING',
+    },
+  })
+  pendingGatePostId = pendingGatePost.id
+
+  const readyGatePost = await prisma.post.create({
+    data: {
+      campaignId: pushCampaignId,
+      platform: 'TIKTOK',
+      caption: 'Gate test — ready',
+      hashtags: ['#gate'],
+      lyricSource: 'Gate lyric',
+      assetNote: 'Gate asset note',
+      directionBrief: 'Gate direction brief',
+      scheduledAt: new Date('2026-10-05'),
+      dayOffset: 4,
+      editorStatus: 'READY',
+    },
+  })
+  readyGatePostId = readyGatePost.id
 })
 
 afterAll(async () => {
@@ -207,5 +259,36 @@ describe('POST /api/campaigns/:id/posts/:postId/push — single-post approved gu
 
     // Cleanup
     await prisma.post.delete({ where: { id: unapprovedPost.id } })
+  })
+})
+
+describe('PATCH /api/campaigns/:id/posts/:postId — approve gate on editorStatus', () => {
+  it('400s when approving a post with editorStatus NOT_STARTED', async () => {
+    const res = await request(app)
+      .patch(`/api/campaigns/${pushCampaignId}/posts/${notStartedGatePostId}`)
+      .send({ approved: true })
+    expect(res.status).toBe(400)
+  })
+
+  it('400s when approving a post with editorStatus PENDING', async () => {
+    const res = await request(app)
+      .patch(`/api/campaigns/${pushCampaignId}/posts/${pendingGatePostId}`)
+      .send({ approved: true })
+    expect(res.status).toBe(400)
+  })
+
+  it('succeeds when approving a post with editorStatus READY', async () => {
+    const res = await request(app)
+      .patch(`/api/campaigns/${pushCampaignId}/posts/${readyGatePostId}`)
+      .send({ approved: true })
+    expect(res.status).toBe(200)
+    expect(res.body.approved).toBe(true)
+  })
+
+  it('does not require editorStatus when approved is not in the request body', async () => {
+    const res = await request(app)
+      .patch(`/api/campaigns/${pushCampaignId}/posts/${notStartedGatePostId}`)
+      .send({ caption: 'just a caption edit' })
+    expect(res.status).toBe(200)
   })
 })
