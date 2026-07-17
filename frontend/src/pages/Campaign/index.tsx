@@ -226,19 +226,25 @@ export default function CampaignDetail() {
             </Button>
           </div>
           {assets && assets.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               {(assets as DriveFile[]).map(f => (
                 <a
                   key={f.id}
                   href={f.webViewLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 px-2 py-1 bg-charcoal-50 border border-charcoal-100 rounded text-xs text-charcoal-600 hover:border-brand transition-colors"
+                  className="flex flex-col items-center gap-1 w-20 group"
                 >
-                  <span>
-                    {f.mimeType.startsWith('video') ? '🎬' : f.mimeType.startsWith('image') ? '🖼' : '📄'}
-                  </span>
-                  <span className="max-w-[140px] truncate">{f.name}</span>
+                  <div className="w-16 h-16 rounded border border-charcoal-100 bg-charcoal-50 overflow-hidden flex items-center justify-center group-hover:border-brand transition-colors">
+                    {f.mimeType.startsWith('image/') ? (
+                      <img src={`/api/drive/asset/${f.id}`} alt={f.name} className="w-full h-full object-cover" />
+                    ) : f.mimeType.startsWith('video/') ? (
+                      <video src={`/api/drive/asset/${f.id}`} muted className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-lg">📄</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-charcoal-600 max-w-full truncate">{f.name}</span>
                 </a>
               ))}
             </div>

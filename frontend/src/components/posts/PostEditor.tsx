@@ -42,6 +42,13 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
 
   const isEditorPending = livePost.editorStatus === 'PENDING'
 
+  const { data: campaignAssets, isLoading: assetsLoading } = useQuery({
+    queryKey: ['assets', campaignId],
+    queryFn: () => api.getAssets(campaignId),
+  })
+  const hasVerifiedAssets = !assetsLoading && !!campaignAssets?.some((a: any) => a.mimeType.startsWith('image/'))
+  const noAssetsMessage = 'No verified image assets in this campaign — add a Drive assets folder with at least one image in campaign settings before sending to the editor agent.'
+
   const { data: polledPost } = useQuery({
     queryKey: ['post', campaignId, initialPost.id],
     queryFn: () => api.getPost(campaignId, initialPost.id),
@@ -245,13 +252,18 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                       Editor agent is working…
                     </div>
                   ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => sendToEditorMutation.mutate()}
-                      disabled={sendToEditorMutation.isPending}
-                    >
-                      {sendToEditorMutation.isPending ? 'Sending…' : 'Send to Editor Agent →'}
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => sendToEditorMutation.mutate()}
+                        disabled={sendToEditorMutation.isPending || !hasVerifiedAssets}
+                      >
+                        {sendToEditorMutation.isPending ? 'Sending…' : 'Send to Editor Agent →'}
+                      </Button>
+                      {!assetsLoading && !hasVerifiedAssets && (
+                        <p className="text-xs text-danger mt-2">{noAssetsMessage}</p>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -309,21 +321,26 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
               <Button variant="ghost" onClick={onClose} size="sm">Close</Button>
 
               {stage === 3 && (
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <input
-                    value={feedback}
-                    onChange={e => setFeedback(e.target.value)}
-                    placeholder="Feedback for regenerate (optional)"
-                    className="flex-1 min-w-0 border border-charcoal-200 rounded px-3 py-2 text-xs"
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => regenerateMutation.mutate()}
-                    disabled={regenerateMutation.isPending}
-                  >
-                    {regenerateMutation.isPending ? 'Regenerating…' : 'Regenerate ↺'}
-                  </Button>
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={feedback}
+                      onChange={e => setFeedback(e.target.value)}
+                      placeholder="Feedback for regenerate (optional)"
+                      className="flex-1 min-w-0 border border-charcoal-200 rounded px-3 py-2 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => regenerateMutation.mutate()}
+                      disabled={regenerateMutation.isPending || !hasVerifiedAssets}
+                    >
+                      {regenerateMutation.isPending ? 'Regenerating…' : 'Regenerate ↺'}
+                    </Button>
+                  </div>
+                  {!assetsLoading && !hasVerifiedAssets && (
+                    <p className="text-xs text-danger">{noAssetsMessage}</p>
+                  )}
                 </div>
               )}
 

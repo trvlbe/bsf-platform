@@ -14,6 +14,7 @@ vi.mock('../../lib/api.js', () => ({
     sendToEditor: vi.fn().mockResolvedValue({}),
     getPost: vi.fn(),
     regeneratePost: vi.fn().mockResolvedValue({}),
+    getAssets: vi.fn().mockResolvedValue([{ id: 'file-1', name: 'a.jpg', mimeType: 'image/jpeg', webViewLink: 'x' }]),
   },
 }))
 
@@ -106,6 +107,7 @@ describe('PostEditor — Stage 2: Send to Editor', () => {
 
   it('calls sendToEditor when the button is clicked', async () => {
     render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    await waitFor(() => expect(screen.getByText('Send to Editor Agent →')).not.toBeDisabled())
     fireEvent.click(screen.getByText('Send to Editor Agent →'))
     await waitFor(() => expect(api.sendToEditor).toHaveBeenCalledWith('camp-1', 'post-1'))
   })
@@ -115,6 +117,13 @@ describe('PostEditor — Stage 2: Send to Editor', () => {
     render(wrap(<PostEditor post={STAGE2_PENDING_POST} campaignId="camp-1" onClose={() => {}} />))
     expect(screen.getByText('Editor agent is working…')).toBeInTheDocument()
     expect(screen.queryByText('Send to Editor Agent →')).not.toBeInTheDocument()
+  })
+
+  it('disables Send to Editor Agent and explains why when the campaign has no image assets', async () => {
+    ;(api.getAssets as any).mockResolvedValueOnce([])
+    render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    await waitFor(() => expect(screen.getByText(/No verified image assets/)).toBeInTheDocument())
+    expect(screen.getByText('Send to Editor Agent →')).toBeDisabled()
   })
 })
 
@@ -135,9 +144,17 @@ describe('PostEditor — Stage 3: Review', () => {
 
   it('calls regeneratePost with feedback text when Regenerate is clicked', async () => {
     render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    await waitFor(() => expect(screen.getByText('Regenerate ↺')).not.toBeDisabled())
     fireEvent.change(screen.getByPlaceholderText('Feedback for regenerate (optional)'), { target: { value: 'Too static — add movement' } })
     fireEvent.click(screen.getByText('Regenerate ↺'))
     await waitFor(() => expect(api.regeneratePost).toHaveBeenCalledWith('camp-1', 'post-1', 'Too static — add movement'))
+  })
+
+  it('disables Regenerate and explains why when the campaign has no image assets', async () => {
+    ;(api.getAssets as any).mockResolvedValueOnce([])
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    await waitFor(() => expect(screen.getByText(/No verified image assets/)).toBeInTheDocument())
+    expect(screen.getByText('Regenerate ↺')).toBeDisabled()
   })
 
   it('shows Approve button when post is not approved', () => {
