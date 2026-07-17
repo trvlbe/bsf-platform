@@ -278,7 +278,7 @@ async function hasVerifiedImageAssets(campaign: { assetsFolderUrl: string | null
 }
 
 async function runEditorWorkflow(postId: string, campaignId: string, userId: string, feedback?: string) {
-  await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'PENDING' } })
+  await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'PENDING', approved: false } })
 
   try {
     const [campaign, user, post] = await Promise.all([

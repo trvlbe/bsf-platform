@@ -108,6 +108,17 @@ describe('POST /:id/posts/:postId/send-to-editor', () => {
     expect(res.status).toBe(400)
     expect(runEditorAgent).not.toHaveBeenCalled()
   })
+
+  it('clears a stale approval as soon as send-to-editor starts, regardless of outcome', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({ ...basePost, approved: true })
+    ;(runEditorAgent as any).mockRejectedValue(new Error('rate limited'))
+    await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({ approved: false }),
+    }))
+  })
 })
 
 describe('POST /:id/posts/:postId/regenerate', () => {
