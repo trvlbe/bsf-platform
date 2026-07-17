@@ -55,6 +55,18 @@ describe('runEditorAgent', () => {
     expect(result.motionPrompt).toBeNull()
   })
 
+  it('throws if the agent chooses caption-only despite available assets', async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{
+        type: 'tool_use',
+        name: 'submit_edit_decision',
+        input: { assetFileId: null, motionPrompt: null, reasoning: 'None of these fit well enough.' },
+      }],
+      stop_reason: 'tool_use',
+    })
+    await expect(runEditorAgent(baseInput, 'test-key')).rejects.toThrow('chose caption-only despite available assets')
+  })
+
   it('throws if assetFileId is set but motionPrompt is missing', async () => {
     mockCreate.mockResolvedValueOnce({
       content: [{
