@@ -22,7 +22,7 @@ driveRouter.get('/doc', async (req, res) => {
     return
   }
   try {
-    const text = await fetchDocAsText(url, user.accessToken)
+    const text = await fetchDocAsText(url, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     res.json({ text })
   } catch (err: any) {
     res.status(502).json({ error: 'Drive API error', message: err.message })
@@ -46,7 +46,7 @@ driveRouter.post('/parse-lyrics', async (req, res) => {
   if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured — add it in Settings' }); return }
 
   try {
-    const rawText = await fetchDocAsText(parsed.data.docUrl, user.accessToken)
+    const rawText = await fetchDocAsText(parsed.data.docUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     const lyricsMarkdown = await parseLyricsFromRawText(rawText, anthropicApiKey)
     res.json({ lyricsMarkdown })
   } catch (err: any) {
@@ -62,7 +62,7 @@ driveRouter.get('/asset/:fileId', async (req, res) => {
     return
   }
   try {
-    const drive = getDriveClient(user.accessToken)
+    const drive = getDriveClient({ id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     const meta = await drive.files.get({ fileId, fields: 'mimeType' })
     const mimeType = meta.data.mimeType ?? 'application/octet-stream'
     res.setHeader('Content-Type', mimeType)
@@ -92,7 +92,7 @@ driveRouter.get('/file', async (req, res) => {
     return
   }
   try {
-    const metadata = await getFileMetadata(url, user.accessToken)
+    const metadata = await getFileMetadata(url, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     res.json(metadata)
   } catch (err: any) {
     res.status(502).json({ error: 'Drive API error', message: err.message })

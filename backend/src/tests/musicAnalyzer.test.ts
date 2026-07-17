@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('googleapis', () => ({
   google: {
-    auth: { OAuth2: vi.fn().mockImplementation(() => ({ setCredentials: vi.fn() })) },
+    auth: { OAuth2: vi.fn().mockImplementation(() => ({ setCredentials: vi.fn(), on: vi.fn() })) },
     drive: vi.fn().mockReturnValue({
       files: {
         get: vi.fn().mockResolvedValue({ data: { stream: null } })
@@ -10,6 +10,12 @@ vi.mock('googleapis', () => ({
     }),
   }
 }))
+
+vi.mock('../lib/db.js', () => ({
+  prisma: { user: { update: vi.fn().mockResolvedValue({}) } },
+}))
+
+const driveCreds = { id: 'user-1', accessToken: 'google-token', refreshToken: 'google-refresh' }
 
 vi.mock('music-metadata', () => ({
   parseStream: vi.fn().mockResolvedValue({
@@ -66,7 +72,7 @@ describe('analyzeMusicUrl — Spotify path', () => {
     const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')
     const result = await analyzeMusicUrl(
       'https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh',
-      'google-token',
+      driveCreds,
       'anthropic-key',
     )
 
@@ -85,7 +91,7 @@ describe('analyzeMusicUrl — Spotify path', () => {
 
     const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')
     await expect(
-      analyzeMusicUrl('https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh', 'google-token', 'anthropic-key'),
+      analyzeMusicUrl('https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh', driveCreds, 'anthropic-key'),
     ).rejects.toThrow('Spotify token error 401')
   })
 })
@@ -97,7 +103,7 @@ describe('analyzeMusicUrl — Drive path', () => {
     const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')
     const result = await analyzeMusicUrl(
       'https://drive.google.com/file/d/FILEID123/view',
-      'google-token',
+      driveCreds,
       'anthropic-key',
       '## Verse 1\nthink about us',
     )
@@ -121,7 +127,7 @@ describe('analyzeMusicUrl — Drive path', () => {
     const { analyzeMusicUrl } = await import('../lib/musicAnalyzer.js')
     const result = await analyzeMusicUrl(
       'https://drive.google.com/file/d/FILEID999/view',
-      'google-token',
+      driveCreds,
       'anthropic-key',
     )
     expect(result.sections).toEqual([])

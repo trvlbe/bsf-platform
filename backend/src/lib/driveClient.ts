@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import { prisma } from './db.js'
 
 export function drivePublicUrl(fileId: string): string {
   return `https://drive.google.com/uc?id=${fileId}&export=view`
@@ -17,15 +18,26 @@ export function extractFileId(url: string): string {
   return match[1]
 }
 
-export function getDriveClient(accessToken: string) {
-  const auth = new google.auth.OAuth2()
-  auth.setCredentials({ access_token: accessToken })
+export interface DriveCredentials {
+  id: string
+  accessToken: string
+  refreshToken: string | null
+}
+
+export function getDriveClient(creds: DriveCredentials) {
+  const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET)
+  auth.setCredentials({ access_token: creds.accessToken, refresh_token: creds.refreshToken ?? undefined })
+  auth.on('tokens', (tokens) => {
+    if (tokens.access_token) {
+      prisma.user.update({ where: { id: creds.id }, data: { accessToken: tokens.access_token } }).catch(() => {})
+    }
+  })
   return google.drive({ version: 'v3', auth })
 }
 
-export async function fetchDocAsText(docUrl: string, accessToken: string): Promise<string> {
+export async function fetchDocAsText(docUrl: string, creds: DriveCredentials): Promise<string> {
   const fileId = extractDocId(docUrl)
-  const drive = getDriveClient(accessToken)
+  const drive = getDriveClient(creds)
   const res = await drive.files.export({
     fileId,
     mimeType: 'text/plain',
@@ -33,9 +45,9 @@ export async function fetchDocAsText(docUrl: string, accessToken: string): Promi
   return res.data as string
 }
 
-export async function getFileMetadata(fileUrl: string, accessToken: string) {
+export async function getFileMetadata(fileUrl: string, creds: DriveCredentials) {
   const fileId = extractFileId(fileUrl)
-  const drive = getDriveClient(accessToken)
+  const drive = getDriveClient(creds)
   const res = await drive.files.get({
     fileId,
     fields: 'id,name,mimeType,webViewLink,size',
@@ -51,11 +63,9 @@ export interface DriveFile {
   size?: string
 }
 
-export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<DriveFile[]> {
+export async function listFolderFiles(folderUrl: string, creds: DriveCredentials): Promise<DriveFile[]> {
   const folderId = extractFileId(folderUrl)
-  const auth = new google.auth.OAuth2()
-  auth.setCredentials({ access_token: accessToken })
-  const drive = google.drive({ version: 'v3', auth })
+  const drive = getDriveClient(creds)
   const res = await drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
     fields: 'files(id,name,mimeType,webViewLink,size)',

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import * as mm from 'music-metadata'
 import { getDriveClient, extractFileId } from './driveClient.js'
+import type { DriveCredentials } from './driveClient.js'
 
 export interface SongSection {
   label: string
@@ -76,14 +77,14 @@ Return a JSON object with this exact shape (no extra keys, no markdown):
 
 export async function analyzeMusicUrl(
   musicUrl: string,
-  accessToken: string,
+  driveCreds: DriveCredentials,
   anthropicApiKey: string,
   lyricsMarkdown?: string | null,
 ): Promise<SongAnalysis> {
   if (musicUrl.includes('spotify.com')) {
     return analyzeSpotify(musicUrl, anthropicApiKey, lyricsMarkdown)
   }
-  return analyzeDriveFile(musicUrl, accessToken, anthropicApiKey, lyricsMarkdown)
+  return analyzeDriveFile(musicUrl, driveCreds, anthropicApiKey, lyricsMarkdown)
 }
 
 async function analyzeSpotify(
@@ -136,12 +137,12 @@ async function analyzeSpotify(
 
 async function analyzeDriveFile(
   driveUrl: string,
-  googleAccessToken: string,
+  driveCreds: DriveCredentials,
   anthropicApiKey: string,
   lyricsMarkdown?: string | null,
 ): Promise<SongAnalysis> {
   const fileId = extractFileId(driveUrl)
-  const drive = getDriveClient(googleAccessToken)
+  const drive = getDriveClient(driveCreds)
 
   const fileRes = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
   const metadata = await mm.parseStream(fileRes.data as any, undefined, { duration: true })

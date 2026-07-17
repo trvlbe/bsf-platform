@@ -42,7 +42,7 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
     let assets: DriveFile[] = []
     if (campaign.assetsFolderUrl && user?.accessToken) {
       try {
-        assets = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+        assets = await listFolderFiles(campaign.assetsFolderUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
       } catch {
         // non-fatal — generation continues without assets
       }

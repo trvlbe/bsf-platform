@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('googleapis', () => ({
   google: {
-    auth: { OAuth2: vi.fn().mockImplementation(() => ({ setCredentials: vi.fn() })) },
+    auth: { OAuth2: vi.fn().mockImplementation(() => ({ setCredentials: vi.fn(), on: vi.fn() })) },
     drive: vi.fn().mockReturnValue({
       files: {
         list: vi.fn().mockResolvedValue({
@@ -18,10 +18,16 @@ vi.mock('googleapis', () => ({
   }
 }))
 
+vi.mock('../lib/db.js', () => ({
+  prisma: { user: { update: vi.fn().mockResolvedValue({}) } },
+}))
+
+const creds = { id: 'user-1', accessToken: 'fake-token', refreshToken: 'fake-refresh' }
+
 describe('listFolderFiles', () => {
   it('returns files from Drive folder', async () => {
     const { listFolderFiles } = await import('../lib/driveClient.js')
-    const files = await listFolderFiles('https://drive.google.com/drive/folders/abc123', 'fake-token')
+    const files = await listFolderFiles('https://drive.google.com/drive/folders/abc123', creds)
     expect(files).toHaveLength(2)
     expect(files[0].name).toBe('cover.jpg')
     expect(files[0].mimeType).toBe('image/jpeg')
@@ -35,7 +41,7 @@ describe('listFolderFiles', () => {
       files: { list: vi.fn().mockResolvedValue({ data: { files: null } }) }
     })
     const { listFolderFiles } = await import('../lib/driveClient.js')
-    const files = await listFolderFiles('https://drive.google.com/drive/folders/empty', 'fake-token')
+    const files = await listFolderFiles('https://drive.google.com/drive/folders/empty', creds)
     expect(files).toHaveLength(0)
   })
 
@@ -45,7 +51,7 @@ describe('listFolderFiles', () => {
     const mockList = vi.fn().mockResolvedValue({ data: { files: [] } })
     mockDrive.mockReturnValueOnce({ files: { list: mockList } })
     const { listFolderFiles } = await import('../lib/driveClient.js')
-    await listFolderFiles('https://drive.google.com/drive/folders/FOLDER_ID_HERE', 'tok')
+    await listFolderFiles('https://drive.google.com/drive/folders/FOLDER_ID_HERE', creds)
     expect(mockList).toHaveBeenCalledWith(expect.objectContaining({
       q: expect.stringContaining('FOLDER_ID_HERE')
     }))

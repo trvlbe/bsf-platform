@@ -149,7 +149,7 @@ campaignsRouter.post('/:id/lyrics', async (req, res) => {
     }
     if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured — add it in Settings' }); return }
 
-    const rawText = await fetchDocAsText(docUrl, user.accessToken)
+    const rawText = await fetchDocAsText(docUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     const lyricsMarkdown = await parseLyricsFromRawText(rawText, anthropicApiKey)
     await prisma.campaign.update({ where: { id: req.params.id }, data: { lyricsDocUrl: docUrl, lyricsMarkdown } })
     res.json({ lyricsMarkdown })
@@ -165,7 +165,7 @@ campaignsRouter.get('/:id/assets', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
     if (!user?.accessToken) { res.status(401).json({ error: 'No Drive token — sign out and sign back in with Google' }); return }
-    const files = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+    const files = await listFolderFiles(campaign.assetsFolderUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     res.json(files)
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to list assets', message: err.message })
@@ -270,7 +270,7 @@ async function hasVerifiedImageAssets(campaign: { assetsFolderUrl: string | null
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user?.accessToken) return false
   try {
-    const allAssets = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+    const allAssets = await listFolderFiles(campaign.assetsFolderUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
     return allAssets.some(a => a.mimeType.startsWith('image/'))
   } catch {
     return false
@@ -299,7 +299,7 @@ async function runEditorWorkflow(postId: string, campaignId: string, userId: str
 
     let assets: DriveFile[] = []
     if (campaign.assetsFolderUrl && user?.accessToken) {
-      const allAssets = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+      const allAssets = await listFolderFiles(campaign.assetsFolderUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken })
       assets = allAssets.filter(a => a.mimeType.startsWith('image/'))
     }
 
@@ -494,7 +494,7 @@ campaignsRouter.post('/:id/analyze-music', async (req, res) => {
   if (!anthropicApiKey) { res.status(400).json({ error: 'Anthropic API key not configured — add it in Settings' }); return }
 
   try {
-    const analysis = await analyzeMusicUrl(campaign.musicUrl, user.accessToken, anthropicApiKey, campaign.lyricsMarkdown)
+    const analysis = await analyzeMusicUrl(campaign.musicUrl, { id: user.id, accessToken: user.accessToken, refreshToken: user.refreshToken }, anthropicApiKey, campaign.lyricsMarkdown)
     await prisma.campaign.update({ where: { id: req.params.id }, data: { songAnalysis: analysis as any } })
     res.json(analysis)
   } catch (err: any) {
