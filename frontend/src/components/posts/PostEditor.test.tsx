@@ -187,6 +187,21 @@ describe('PostEditor — Stage 3: Review', () => {
     render(wrap(<PostEditor post={{ ...STAGE3_READY_POST, approved: true, bufferId: 'buf-123' }} campaignId="camp-1" onClose={() => {}} />))
     expect(screen.queryByText('Push →')).not.toBeInTheDocument()
   })
+
+  it('re-disables Push and re-shows Approve after a regenerate clears approval, even though this component already approved it once', async () => {
+    ;(api.approvePost as any).mockResolvedValueOnce({ ...STAGE3_READY_POST, approved: true })
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+
+    fireEvent.click(screen.getByText('Approve'))
+    await waitFor(() => expect(screen.getByText('Approved ✓')).toBeInTheDocument())
+    expect(screen.getByText('Push →')).not.toBeDisabled()
+
+    ;(api.regeneratePost as any).mockResolvedValueOnce({ ...STAGE3_READY_POST, approved: false, editorStatus: 'READY' })
+    fireEvent.click(screen.getByText('Regenerate ↺'))
+
+    await waitFor(() => expect(screen.getByText('Approve')).toBeInTheDocument())
+    expect(screen.getByText('Push →')).toBeDisabled()
+  })
 })
 
 describe('PostEditor — Approve gate', () => {

@@ -92,7 +92,10 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
 
   const approveMutation = useMutation({
     mutationFn: () => api.approvePost(campaignId, initialPost.id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['posts', campaignId] }),
+    onSuccess: (updated) => {
+      setLivePost(updated)
+      qc.invalidateQueries({ queryKey: ['posts', campaignId] })
+    },
     onError: (e: Error) => alert(`Approval failed: ${e.message}`),
   })
 
@@ -104,7 +107,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
     },
   })
 
-  const isApproved = approveMutation.isSuccess || livePost.approved
+  const isApproved = livePost.approved
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
