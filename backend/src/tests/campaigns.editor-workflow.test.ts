@@ -92,6 +92,22 @@ describe('POST /:id/posts/:postId/send-to-editor', () => {
     expect(res.status).toBe(200)
     expect(res.body.editorStatus).toBe('FAILED')
   })
+
+  it('400s when the campaign has no image assets (folder returns none)', async () => {
+    const { listFolderFiles } = await import('../lib/driveClient.js')
+    ;(listFolderFiles as any).mockResolvedValueOnce([])
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(400)
+    expect(runEditorAgent).not.toHaveBeenCalled()
+  })
+
+  it('400s when the campaign has no assetsFolderUrl configured', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.campaign.findFirst as any).mockResolvedValueOnce({ ...mockCampaign, assetsFolderUrl: '' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(400)
+    expect(runEditorAgent).not.toHaveBeenCalled()
+  })
 })
 
 describe('POST /:id/posts/:postId/regenerate', () => {
@@ -122,6 +138,16 @@ describe('POST /:id/posts/:postId/regenerate', () => {
     ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'ok' })
     const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
     expect(res.status).toBe(200)
+  })
+
+  it('400s when the campaign has no image assets (folder returns none)', async () => {
+    const { listFolderFiles } = await import('../lib/driveClient.js')
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({ ...basePost, editorStatus: 'READY' })
+    ;(listFolderFiles as any).mockResolvedValueOnce([])
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(res.status).toBe(400)
+    expect(runEditorAgent).not.toHaveBeenCalled()
   })
 
   it('clears a stale video when regenerating into a caption-only decision', async () => {

@@ -265,6 +265,18 @@ campaignsRouter.patch('/:id/posts/:postId', async (req, res) => {
   }
 })
 
+async function hasVerifiedImageAssets(campaign: { assetsFolderUrl: string | null }, userId: string): Promise<boolean> {
+  if (!campaign.assetsFolderUrl) return false
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user?.accessToken) return false
+  try {
+    const allAssets = await listFolderFiles(campaign.assetsFolderUrl, user.accessToken)
+    return allAssets.some(a => a.mimeType.startsWith('image/'))
+  } catch {
+    return false
+  }
+}
+
 async function runEditorWorkflow(postId: string, campaignId: string, userId: string, feedback?: string) {
   await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'PENDING' } })
 
@@ -347,6 +359,10 @@ campaignsRouter.post('/:id/posts/:postId/send-to-editor', async (req, res) => {
   const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
   if (!post) { res.status(404).json({ error: 'Post not found' }); return }
   if (!post.directionAccepted) { res.status(400).json({ error: 'Direction must be accepted first' }); return }
+  if (!(await hasVerifiedImageAssets(campaign, req.session.userId!))) {
+    res.status(400).json({ error: 'No verified image assets in this campaign — add a Drive assets folder with at least one image before sending to the editor agent.' })
+    return
+  }
   try {
     const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!)
     res.json(updated)
@@ -366,6 +382,10 @@ campaignsRouter.post('/:id/posts/:postId/regenerate', async (req, res) => {
   if (!post) { res.status(404).json({ error: 'Post not found' }); return }
   if (post.editorStatus !== 'READY' && post.editorStatus !== 'FAILED') {
     res.status(400).json({ error: 'No prior editor attempt to regenerate from' }); return
+  }
+  if (!(await hasVerifiedImageAssets(campaign, req.session.userId!))) {
+    res.status(400).json({ error: 'No verified image assets in this campaign — add a Drive assets folder with at least one image before sending to the editor agent.' })
+    return
   }
   try {
     const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!, parsed.data.feedback)
