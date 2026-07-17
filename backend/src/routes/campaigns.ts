@@ -348,7 +348,8 @@ async function runEditorWorkflow(postId: string, campaignId: string, userId: str
         editorStatus: 'PENDING',
       },
     })
-  } catch {
+  } catch (err: any) {
+    console.error(`runEditorWorkflow failed for post ${postId}:`, err?.message ?? err)
     return await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'FAILED' } })
   }
 }
