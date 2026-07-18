@@ -277,8 +277,8 @@ async function hasVerifiedImageAssets(campaign: { assetsFolderUrl: string | null
   }
 }
 
-async function runEditorWorkflow(postId: string, campaignId: string, userId: string, feedback?: string) {
-  await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'PENDING', approved: false } })
+async function runEditorWorkflow(postId: string, campaignId: string, userId: string, feedback?: string, autoApproveOnSuccess = false) {
+  await prisma.post.update({ where: { id: postId }, data: { editorStatus: 'PENDING', approved: false, autoApproveOnEditorSuccess: autoApproveOnSuccess } })
 
   try {
     const [campaign, user, post] = await Promise.all([
@@ -326,6 +326,7 @@ async function runEditorWorkflow(postId: string, campaignId: string, userId: str
           videoUrl: null,
           videoStatus: null,
           videoJobId: null,
+          approved: autoApproveOnSuccess,
         },
       })
     }
@@ -365,7 +366,7 @@ campaignsRouter.post('/:id/posts/:postId/send-to-editor', async (req, res) => {
     return
   }
   try {
-    const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!)
+    const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!, undefined, true)
     res.json(updated)
   } catch (err: any) {
     res.status(500).json({ error: 'Send to editor failed', message: err.message })
@@ -389,7 +390,7 @@ campaignsRouter.post('/:id/posts/:postId/regenerate', async (req, res) => {
     return
   }
   try {
-    const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!, parsed.data.feedback)
+    const updated = await runEditorWorkflow(post.id, campaign.id, req.session.userId!, parsed.data.feedback, false)
     res.json(updated)
   } catch (err: any) {
     res.status(500).json({ error: 'Regenerate failed', message: err.message })

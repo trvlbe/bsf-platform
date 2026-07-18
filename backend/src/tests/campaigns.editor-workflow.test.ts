@@ -119,6 +119,23 @@ describe('POST /:id/posts/:postId/send-to-editor', () => {
       data: expect.objectContaining({ approved: false }),
     }))
   })
+
+  it('persists autoApproveOnEditorSuccess=true at the start of a send-to-editor run', async () => {
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'ok' })
+    await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({ editorStatus: 'PENDING', approved: false, autoApproveOnEditorSuccess: true }),
+    }))
+  })
+
+  it('auto-approves when send-to-editor completes with a caption-only decision', async () => {
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'no fit' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('READY')
+    expect(res.body.approved).toBe(true)
+  })
 })
 
 describe('POST /:id/posts/:postId/regenerate', () => {
@@ -175,5 +192,26 @@ describe('POST /:id/posts/:postId/regenerate', () => {
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ videoUrl: null, videoStatus: null, videoJobId: null }),
     }))
+  })
+
+  it('persists autoApproveOnEditorSuccess=false at the start of a regenerate run', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({ ...basePost, editorStatus: 'READY' })
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'ok' })
+    await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'post-1' },
+      data: expect.objectContaining({ editorStatus: 'PENDING', approved: false, autoApproveOnEditorSuccess: false }),
+    }))
+  })
+
+  it('does not approve when regenerate completes, even with a caption-only READY decision', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValue({ ...basePost, editorStatus: 'READY' })
+    ;(runEditorAgent as any).mockResolvedValue({ assetFileId: null, motionPrompt: null, reasoning: 'still no fit' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/regenerate').send({})
+    expect(res.status).toBe(200)
+    expect(res.body.editorStatus).toBe('READY')
+    expect(res.body.approved).toBe(false)
   })
 })
