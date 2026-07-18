@@ -127,6 +127,7 @@ model Post {
   editorStatus      EditorStatus @default(NOT_STARTED)
   editorPrompt      String?
   editorReasoning   String?
+  autoApproveOnEditorSuccess Boolean @default(false)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
