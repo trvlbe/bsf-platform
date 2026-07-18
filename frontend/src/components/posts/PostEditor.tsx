@@ -161,6 +161,11 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                     {!livePost.assetFileId && (
                       <p className="text-xs text-charcoal-400 mt-2">Caption-only post — no image asset fit the direction.</p>
                     )}
+                    {isApproved ? (
+                      <p className="text-xs text-charcoal-400 mt-2">Approved for push.</p>
+                    ) : (
+                      <p className="text-xs text-charcoal-400 mt-2">Regenerated result — review before approving.</p>
+                    )}
                   </>
                 )}
                 {livePost.editorStatus === 'FAILED' && (
@@ -240,6 +245,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                       </div>
                     </div>
                   )}
+                  <p className="text-xs text-charcoal-400 mt-3">Accepting approves this direction to be sent to the editor agent.</p>
                 </div>
               )}
 
@@ -263,6 +269,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                       >
                         {sendToEditorMutation.isPending ? 'Sending…' : 'Send to Editor Agent →'}
                       </Button>
+                      <p className="text-xs text-charcoal-400 mt-2">A successful result is automatically approved for push.</p>
                       {!assetsLoading && !hasVerifiedAssets && (
                         <p className="text-xs text-danger mt-2">{noAssetsMessage}</p>
                       )}

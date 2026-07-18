@@ -94,6 +94,11 @@ describe('PostEditor — Stage 1: Direction Review', () => {
       directionBrief: 'Golden hour, empty chairs, quiet longing',
     }))
   })
+
+  it('shows copy that accepting approves what is sent to the editor agent', () => {
+    render(wrap(<PostEditor post={BASE_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Accepting approves this direction to be sent to the editor agent.')).toBeInTheDocument()
+  })
 })
 
 describe('PostEditor — Stage 2: Send to Editor', () => {
@@ -124,6 +129,20 @@ describe('PostEditor — Stage 2: Send to Editor', () => {
     render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
     await waitFor(() => expect(screen.getByText(/No verified image assets/)).toBeInTheDocument())
     expect(screen.getByText('Send to Editor Agent →')).toBeDisabled()
+  })
+
+  it('shows copy that a successful run is automatically approved', () => {
+    render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('A successful result is automatically approved for push.')).toBeInTheDocument()
+  })
+
+  it('shows "Approved ✓" immediately after Send to Editor Agent succeeds, with no manual Approve click', async () => {
+    ;(api.sendToEditor as any).mockResolvedValueOnce({ ...STAGE2_POST, editorStatus: 'READY', approved: true, editorReasoning: 'good fit' })
+    render(wrap(<PostEditor post={STAGE2_POST} campaignId="camp-1" onClose={() => {}} />))
+    await waitFor(() => expect(screen.getByText('Send to Editor Agent →')).not.toBeDisabled())
+    fireEvent.click(screen.getByText('Send to Editor Agent →'))
+    await waitFor(() => expect(screen.getByText('Approved ✓')).toBeInTheDocument())
+    expect(screen.getByText('Push →')).not.toBeDisabled()
   })
 })
 
@@ -201,6 +220,16 @@ describe('PostEditor — Stage 3: Review', () => {
 
     await waitFor(() => expect(screen.getByText('Approve')).toBeInTheDocument())
     expect(screen.getByText('Push →')).toBeDisabled()
+  })
+
+  it('shows review-before-approving copy when READY but not yet approved', () => {
+    render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Regenerated result — review before approving.')).toBeInTheDocument()
+  })
+
+  it('shows approved-for-push copy once approved', () => {
+    render(wrap(<PostEditor post={{ ...STAGE3_READY_POST, approved: true }} campaignId="camp-1" onClose={() => {}} />))
+    expect(screen.getByText('Approved for push.')).toBeInTheDocument()
   })
 })
 
