@@ -54,7 +54,10 @@ export async function pollAllPendingPosts(): Promise<void> {
     try {
       const { status, videoUrl } = await checkJobStatus(post.videoJobId!)
       if (status === 'completed' && videoUrl) {
-        await prisma.post.update({ where: { id: post.id }, data: { videoStatus: 'READY', videoUrl, editorStatus: 'READY' } })
+        await prisma.post.update({
+          where: { id: post.id },
+          data: { videoStatus: 'READY', videoUrl, editorStatus: 'READY', approved: post.autoApproveOnEditorSuccess },
+        })
       } else if (status === 'failed' || status === 'nsfw') {
         await prisma.post.update({ where: { id: post.id }, data: { videoStatus: 'FAILED', editorStatus: 'FAILED' } })
       } else if (status === 'in_progress') {
