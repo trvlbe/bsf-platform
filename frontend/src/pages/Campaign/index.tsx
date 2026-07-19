@@ -105,6 +105,7 @@ export default function CampaignDetail() {
   const isGenerating = generateMutation.isPending || campaign.status === 'GENERATING'
   const canGenerate = campaign.status === 'DRAFT' && campaign.lyricsMarkdown
   const canPush = campaign.status === 'GENERATED' || campaign.status === 'ACTIVE'
+  const analysisInFlight = analyzeMutation.isPending || analyzeMusicMutation.isPending
 
   return (
     <AppShell user={user!}>
@@ -115,8 +116,13 @@ export default function CampaignDetail() {
           <div className="flex items-center gap-2">
             <StatusBadge status={campaign.status} />
             {canGenerate && (
-              <Button size="sm" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
-                {generateMutation.isPending ? 'Generating...' : 'Generate Content →'}
+              <Button
+                size="sm"
+                onClick={() => generateMutation.mutate()}
+                disabled={generateMutation.isPending || analysisInFlight}
+                title={analysisInFlight ? 'Waiting for lyric/music analysis to finish before generating' : undefined}
+              >
+                {generateMutation.isPending ? 'Generating...' : analysisInFlight ? 'Waiting on analysis...' : 'Generate Content →'}
               </Button>
             )}
             {canPush && (
