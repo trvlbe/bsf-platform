@@ -113,3 +113,23 @@ Reviewed full diff (969df69..eb906fa, 27 commits) on opus. Found 2 Important cro
 Both fixed in eb906fa with 2 new discriminating regression tests (verified by re-review to actually exercise the fixes, not pass trivially). Full backend suite: 24 files/90 tests passing. Frontend: 8 files/33 tests passing. **Ready to merge: Yes.**
 
 All 12 tasks (1, 1b, 2-11) complete and individually approved. Branch: post-editor-agent-workflow. Worktree: .worktrees/post-editor-agent-workflow.
+
+## Merge Send-to-Editor and Approve Plan (2026-07-18)
+Plan: docs/superpowers/plans/2026-07-18-merge-approve-into-editor-run.md
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — autoApproveOnEditorSuccess column | complete | 469e543, review approved | minor: schema field not column-aligned (cosmetic, matches brief snippet verbatim) |
+| 2 — runEditorWorkflow auto-approve + call sites | complete | fc5aa01, review approved | minor: pre-existing test-isolation smell (findFirst mockResolvedValue leaks, not mockResolvedValueOnce) unrelated to this task |
+| 3 — pollAllPendingPosts auto-approve + new higgsfield.test.ts | complete | 3a264d6, review approved | minor: task-3-report.md scratch file had stale unrelated content appended (doc hygiene only, not code) |
+| 4 — PostEditor copy (both approval moments) | complete | 5e41750, review approved | minor: Stage 2 auto-approve copy renders even when button is disabled (plan-mandated placement, not a defect) |
+| 5 — Full verification + docker rebuild | complete | (no code changes) backend 106/106, frontend 41/41, both builds clean, containers rebuilt+healthy |
+
+All 5 tasks complete. Range for final whole-branch review: 469e543^..5e41750 (base = pre-Task-1, i.e. commit before this plan started: 2c21a05).
+
+## Final Whole-Branch Review (2026-07-18)
+Reviewed 2c21a05..5e41750 (4 commits) on opus. Found 1 Important cross-task gap the task-scoped reviews couldn't see:
+- send-to-editor route had no editorStatus guard (unlike regenerate), so a direct API call could re-run and auto-approve an already-completed post, bypassing "regenerate never auto-approves."
+Fixed in 6b6ee87 (NOT_STARTED guard + regression test + copy-neutrality fix for Stage 3). Re-reviewed 2c21a05..6b6ee87 — FIXED, verified against correct EditorStatus enum value, consistent with regenerate's PENDING handling, real regression test confirmed. Minor findings (flag never cleared post-consumption; pre-existing double-submit gap on other routes) logged, no action needed — both inert/pre-existing.
+Backend: 26 files / 107 tests passing. Frontend: 8 files / 41 tests passing. Docker containers rebuilt and healthy. **Ready to merge: Yes.**
+
+All 5 tasks (1-5) + final review complete.
