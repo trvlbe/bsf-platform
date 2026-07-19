@@ -32,8 +32,8 @@ export async function createVideoJob(
     const text = await res.text().catch(() => '')
     throw new Error(`Higgsfield createJob ${res.status}: ${text}`)
   }
-  const data = await res.json() as { request_id: string; status: string }
-  return { requestId: data.request_id }
+  const data = await res.json() as { id: string }
+  return { requestId: data.id }
 }
 
 export async function checkJobStatus(requestId: string): Promise<{ status: string; videoUrl?: string }> {
