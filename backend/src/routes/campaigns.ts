@@ -361,6 +361,10 @@ campaignsRouter.post('/:id/posts/:postId/send-to-editor', async (req, res) => {
   const post = await prisma.post.findFirst({ where: { id: req.params.postId, campaignId: campaign.id } })
   if (!post) { res.status(404).json({ error: 'Post not found' }); return }
   if (!post.directionAccepted) { res.status(400).json({ error: 'Direction must be accepted first' }); return }
+  if (post.editorStatus !== 'NOT_STARTED') {
+    res.status(400).json({ error: 'Already sent to editor — use regenerate instead' })
+    return
+  }
   if (!(await hasVerifiedImageAssets(campaign, req.session.userId!))) {
     res.status(400).json({ error: 'No verified image assets in this campaign — add a Drive assets folder with at least one image before sending to the editor agent.' })
     return

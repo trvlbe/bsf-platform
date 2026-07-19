@@ -136,6 +136,14 @@ describe('POST /:id/posts/:postId/send-to-editor', () => {
     expect(res.body.editorStatus).toBe('READY')
     expect(res.body.approved).toBe(true)
   })
+
+  it('400s when editorStatus is already READY (must use regenerate instead)', async () => {
+    const { prisma } = await import('../lib/db.js')
+    ;(prisma.post.findFirst as any).mockResolvedValueOnce({ ...basePost, editorStatus: 'READY' })
+    const res = await request(buildApp()).post('/campaigns/camp-1/posts/post-1/send-to-editor')
+    expect(res.status).toBe(400)
+    expect(runEditorAgent).not.toHaveBeenCalled()
+  })
 })
 
 describe('POST /:id/posts/:postId/regenerate', () => {

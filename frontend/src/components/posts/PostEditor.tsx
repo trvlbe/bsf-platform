@@ -164,7 +164,7 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                     {isApproved ? (
                       <p className="text-xs text-charcoal-400 mt-2">Approved for push.</p>
                     ) : (
-                      <p className="text-xs text-charcoal-400 mt-2">Regenerated result — review before approving.</p>
+                      <p className="text-xs text-charcoal-400 mt-2">Review before approving.</p>
                     )}
                   </>
                 )}

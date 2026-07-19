@@ -224,7 +224,7 @@ describe('PostEditor — Stage 3: Review', () => {
 
   it('shows review-before-approving copy when READY but not yet approved', () => {
     render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
-    expect(screen.getByText('Regenerated result — review before approving.')).toBeInTheDocument()
+    expect(screen.getByText('Review before approving.')).toBeInTheDocument()
   })
 
   it('shows approved-for-push copy once approved', () => {
