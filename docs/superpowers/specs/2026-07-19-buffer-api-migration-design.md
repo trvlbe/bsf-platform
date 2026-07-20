@@ -65,6 +65,46 @@ Buffer's REST-to-GraphQL migration guide)
   file with any audio already baked in (a separate, already-queued spec's
   job). This spec only ever forwards whatever URL is already on the post.
 
+## Per-Platform Metadata (added after reviewing Buffer's real Create Post UI)
+
+Buffer's `createPost` mutation accepts a `metadata` input alongside `assets`,
+with per-platform sub-fields. Verified live against Buffer's type reference
+for each platform this app supports:
+
+| Platform | Required fields (no default) | AI-disclosure field |
+|---|---|---|
+| YouTube | `title`, `categoryId` | `isAiGenerated` |
+| Instagram | `type` (post/story/reel) | `isAiGenerated` |
+| Facebook | `type` (post/story/reel) | *(not supported)* |
+| TikTok | *(none — `title` is optional)* | `isAiGenerated` (video only) |
+
+A bare `createPost` call with no `metadata` would fail validation for YouTube
+and Instagram (missing required fields) and Facebook (missing required
+`type`) — only TikTok would work unmodified. This spec adds metadata
+handling for all four platforms in the same pass, since a push path that
+silently fails on 3 of 4 platforms isn't a meaningful improvement over today.
+
+**Chosen values:**
+- **YouTube `categoryId`**: hardcoded `10` (Music) — every post from this
+  platform is music content by definition.
+- **Instagram `type`** and **Facebook `type`**: hardcoded `'reel'` — matches
+  this app's short-form vertical video content (`contentDuration:
+  'SHORT_FORM'` is already the schema default).
+- **`isAiGenerated: true`** wherever the platform supports it (YouTube,
+  Instagram, TikTok) — every video this app produces is genuinely
+  AI-generated (Higgsfield + Claude), so honest disclosure by default.
+  Omitted entirely for Facebook (field doesn't exist there).
+- **YouTube `title`**: composed as `"<campaign title> #<sequence>: <AI
+  phrase>"` — e.g. `"Think About Us #47: golden hour driving"`. `<sequence>`
+  is the post's 1-indexed position among all posts in the campaign, ordered
+  by `scheduledAt` (computed at push time, not stored — no new column
+  needed for it). `<AI phrase>` is a new short contextual phrase generated
+  by the content agent alongside the existing caption/hashtags/anchorQuote
+  (stored as `Post.youtubeTitlePhrase`, nullable — existing already-generated
+  posts won't have one until regenerated; the title composition falls back
+  to just `"<campaign title> #<sequence>"` when it's null). Truncated to
+  YouTube's 100-character title limit if needed.
+
 ## Data Model Changes
 
 `User` (`backend/prisma/schema.prisma`):
@@ -78,6 +118,10 @@ Buffer's REST-to-GraphQL migration guide)
 `Post`:
 - Add `pushError String?` — set to the failure message when a push fails,
   cleared to `null` on a successful push.
+- Add `youtubeTitlePhrase String?` — a short AI-generated contextual phrase
+  (e.g. "golden hour driving"), used to compose the required YouTube title.
+  Nullable: existing already-generated posts won't have one until
+  regenerated.
 
 Env vars (`backend/.env`, `docker-compose.yml` where referenced):
 - `BUFFER_PROFILE_TIKTOK`/`INSTAGRAM`/`YOUTUBE`/`FACEBOOK` → renamed to
@@ -110,16 +154,49 @@ const CREATE_POST_MUTATION = `
   }
 `
 
+const YOUTUBE_MUSIC_CATEGORY_ID = '10'
+const YOUTUBE_TITLE_LIMIT = 100
+
+export function buildYoutubeTitle(campaignTitle: string, sequenceNumber: number, phrase: string | null): string {
+  const base = `${campaignTitle} #${sequenceNumber}`
+  const full = phrase ? `${base}: ${phrase}` : base
+  return full.length > YOUTUBE_TITLE_LIMIT ? full.slice(0, YOUTUBE_TITLE_LIMIT - 1) + '…' : full
+}
+
+function buildMetadata(post: Post, campaignTitle: string, sequenceNumber: number) {
+  switch (post.platform) {
+    case 'YOUTUBE':
+      return {
+        youtube: {
+          title: buildYoutubeTitle(campaignTitle, sequenceNumber, post.youtubeTitlePhrase),
+          categoryId: YOUTUBE_MUSIC_CATEGORY_ID,
+          isAiGenerated: true,
+        },
+      }
+    case 'INSTAGRAM':
+      return { instagram: { type: 'reel', isAiGenerated: true } }
+    case 'FACEBOOK':
+      return { facebook: { type: 'reel' } }
+    case 'TIKTOK':
+      return { tiktok: { isAiGenerated: true } }
+    default:
+      return undefined
+  }
+}
+
 export async function pushPost(
   post: Post,
   apiKey: string,
   channelIds: Record<string, string>,
+  campaignTitle: string,
+  sequenceNumber: number,
 ): Promise<string> {
   const channelId = channelIds[post.platform]
   if (!channelId) throw new Error(`No Buffer channel ID for platform ${post.platform}`)
 
   const text = `${post.caption}\n${post.hashtags.join(' ')}`
   const assets = post.videoUrl ? [{ video: { url: post.videoUrl } }] : undefined
+  const metadata = buildMetadata(post, campaignTitle, sequenceNumber)
 
   const res = await fetch(BUFFER_API, {
     method: 'POST',
@@ -137,6 +214,7 @@ export async function pushPost(
           mode: 'customScheduled',
           dueAt: post.scheduledAt.toISOString(),
           ...(assets ? { assets } : {}),
+          ...(metadata ? { metadata } : {}),
         },
       },
     }),
@@ -161,8 +239,23 @@ Notes:
   position, new meaning — a Bearer token, not an OAuth access token).
 - `channelIds` replaces `profileIds` at call sites, sourced from the renamed
   `bufferChannel*` fields.
+- `pushPost` gains two new required parameters: `campaignTitle` (for the
+  YouTube title) and `sequenceNumber` (the post's 1-indexed position among
+  all of the campaign's posts, ordered by `scheduledAt` — computed by the
+  caller, since only the caller has the full campaign's post list in hand).
 - No `duration`/thumbnail handling in this pass — Buffer/the target platform
   picks a default thumbnail frame. Out of scope unless a real need surfaces.
+
+### `backend/src/agents/contentAgent.ts`
+
+The tool schema gains one new required string field alongside the existing
+`caption`/`hashtags`/`anchorQuote`/`assetNote`: `youtubeTitlePhrase` — a
+short (a few words) contextual phrase describing the post, generated for
+every draft regardless of platform (keeps the tool schema uniform across
+all four platforms in one call; only actually consumed when composing a
+YouTube title at push time). Persisted to `Post.youtubeTitlePhrase` in
+`generate.ts`'s `allPosts.push({...})` call alongside the other draft
+fields.
 
 ### `backend/src/commands/push.ts` and the single-post push route (`backend/src/routes/campaigns.ts`)
 
@@ -170,6 +263,19 @@ Both currently read `user.bufferProfileTiktok` etc. and build a `profileIds`
 map — update field names to `bufferChannel*` and the local variable to
 `channelIds`, matching the renamed schema fields and `pushPost`'s new
 parameter name.
+
+Both also need the campaign's title and each post's sequence number to pass
+into `pushPost`. Sequence number is computed once per push operation: fetch
+all of the campaign's posts ordered by `scheduledAt`, and look up each
+post's 1-indexed position in that list — e.g.:
+```ts
+const orderedPosts = await prisma.post.findMany({ where: { campaignId }, orderBy: { scheduledAt: 'asc' }, select: { id: true } })
+const sequenceNumber = orderedPosts.findIndex(p => p.id === post.id) + 1
+```
+(`pushCampaign` already fetches the campaign row, so `campaign.title` is
+already in hand; the single-post push route needs one extra `findMany` for
+the ordered post list, since it doesn't otherwise load every post in the
+campaign.)
 
 Failure handling changes from:
 ```ts
@@ -210,6 +316,16 @@ and existing saved values (if any) will no longer work.
 - Video-asset case: request body's `variables.input.assets` includes the
   video URL when `post.videoUrl` is set; the `assets` key is entirely absent
   when it's `null`.
+- Per-platform metadata: a YOUTUBE post's request body includes
+  `metadata.youtube.title` composed from campaign title + sequence + phrase,
+  `categoryId: '10'`, `isAiGenerated: true`; an INSTAGRAM post's body
+  includes `metadata.instagram.type: 'reel'` and `isAiGenerated: true`; a
+  FACEBOOK post's body includes `metadata.facebook.type: 'reel'` and no
+  `isAiGenerated` key anywhere in its metadata; a TIKTOK post's body
+  includes `metadata.tiktok.isAiGenerated: true`.
+- `buildYoutubeTitle`: composes `"<title> #<n>: <phrase>"`; falls back to
+  `"<title> #<n>"` when phrase is `null`; truncates to 100 characters when
+  the composed string exceeds it.
 
 **Backend** — extend push-flow test coverage (check
 `backend/src/tests/campaigns.post-approve.test.ts`, which currently mocks
