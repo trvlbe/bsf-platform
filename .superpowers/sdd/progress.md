@@ -133,3 +133,12 @@ Fixed in 6b6ee87 (NOT_STARTED guard + regression test + copy-neutrality fix for 
 Backend: 26 files / 107 tests passing. Frontend: 8 files / 41 tests passing. Docker containers rebuilt and healthy. **Ready to merge: Yes.**
 
 All 5 tasks (1-5) + final review complete.
+
+## Buffer API Migration + Video Attachment Plan (2026-07-19)
+Plan: docs/superpowers/plans/2026-07-19-buffer-api-migration.md
+| Task | Status | Commits |
+|------|--------|---------|
+| 1 — Post.pushError/youtubeTitlePhrase + User bufferChannel* renames | complete | 57f6795, review approved | minor: report showed only post-migration row counts not before/after (controller independently re-verified: 1 user/1 campaign/58 posts intact, matches report) |
+| 2 — contentAgent youtubeTitlePhrase generation | complete | 39b63b8, review approved | no issues found |
+| 3 — pushPost GraphQL rewrite + per-platform metadata + buffer.test.ts | complete | f2fbde9, review approved | minor: test fixture uses `as any` (inherited verbatim from plan's own brief text, not implementer deviation); 2 new expected TS2554 arity errors in push.ts/campaigns.ts confirmed as exactly Task 4's scope |
+| 4 — push.ts + single-post push route: renamed fields, sequence number, pushError persistence | complete | 6bda0fe | fixed test bug found during verification: new pushError-persistence test shared pushCampaignId with readyGatePostId (approved with bufferId null by an earlier test in the same file) — both competed for the single queued pushPost mock rejection/resolution, so the assertion landed on the wrong post; fixed by excluding readyGatePostId (give it a bufferId) before the new test runs; also deleted stale legacy backend/tests/buffer.test.ts (REST-API contract, superseded by Task 3's GraphQL-API src/tests/buffer.test.ts, left behind by Task 3) |
