@@ -99,7 +99,7 @@ silently fails on 3 of 4 platforms isn't a meaningful improvement over today.
   is the post's 1-indexed position among all posts in the campaign, ordered
   by `scheduledAt` (computed at push time, not stored — no new column
   needed for it). `<AI phrase>` is a new short contextual phrase generated
-  by the content agent alongside the existing caption/hashtags/anchorQuote
+  by the content agent alongside the existing caption/hashtags/lyricSource
   (stored as `Post.youtubeTitlePhrase`, nullable — existing already-generated
   posts won't have one until regenerated; the title composition falls back
   to just `"<campaign title> #<sequence>"` when it's null). Truncated to
@@ -249,7 +249,7 @@ Notes:
 ### `backend/src/agents/contentAgent.ts`
 
 The tool schema gains one new required string field alongside the existing
-`caption`/`hashtags`/`anchorQuote`/`assetNote`: `youtubeTitlePhrase` — a
+`caption`/`hashtags`/`lyricSource`/`assetNote`: `youtubeTitlePhrase` — a
 short (a few words) contextual phrase describing the post, generated for
 every draft regardless of platform (keeps the tool schema uniform across
 all four platforms in one call; only actually consumed when composing a
