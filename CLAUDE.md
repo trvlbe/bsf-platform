@@ -17,11 +17,19 @@ The Blue Sky Fable Content Agent Web Platform — a full-stack React + Express +
 | Frontend | React 19, Vite 6, Tailwind CSS v4, React Router v7, TanStack Query v5 |
 | Tests | Vitest — backend + frontend |
 
+## First-Time Setup
+
+Setting up on a machine that hasn't run this stack before? See
+`docs/DOCKER_SETUP.md` — full step-by-step: creating `backend/.env`, where
+each credential comes from, running migrations for the first time,
+verifying health, and (optionally) restoring campaign data from another
+machine.
+
 ## Commands
 
 ```bash
-# Full stack
-docker compose up --build
+# Full stack (rebuild after ANY code change — up -d alone reuses stale images)
+docker compose up -d --build
 
 # Backend only (from backend/)
 npm run dev        # tsx watch, port 4001
