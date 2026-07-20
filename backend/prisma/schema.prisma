@@ -47,10 +47,10 @@ model User {
   refreshToken String?
   anthropicApiKey        String?
   bufferAccessToken      String?
-  bufferProfileTiktok    String?
-  bufferProfileInstagram String?
-  bufferProfileYoutube   String?
-  bufferProfileFacebook  String?
+  bufferChannelTiktok    String?
+  bufferChannelInstagram String?
+  bufferChannelYoutube   String?
+  bufferChannelFacebook  String?
   higgsfieldApiKey       String?
   campaigns    Campaign[]
   createdAt    DateTime   @default(now())
@@ -119,6 +119,8 @@ model Post {
   assetFileId   String?
   assetMimeType String?
   bufferId    String?
+  pushError   String?
+  youtubeTitlePhrase String?
   videoJobId  String?
   videoStatus VideoStatus?
   videoUrl    String?
