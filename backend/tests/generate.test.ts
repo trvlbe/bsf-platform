@@ -34,7 +34,7 @@ vi.mock('../src/agents/arcAgent.js', () => ({
 vi.mock('../src/agents/contentAgent.js', () => ({
   runContentAgent: vi.fn().mockResolvedValue([{
     platform: 'TIKTOK', caption: 'Test', hashtags: ['#test'],
-    lyricSource: 'I keep thinking about us', assetNote: 'Cover art'
+    lyricSource: 'I keep thinking about us', assetNote: 'Cover art', youtubeTitlePhrase: 'test phrase'
   }])
 }))
 

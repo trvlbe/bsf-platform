@@ -5,7 +5,7 @@ vi.mock('@anthropic-ai/sdk', async () => {
     content: [{
       type: 'tool_use',
       name: 'submit_posts',
-      input: { posts: [{ platform: 'TIKTOK', caption: 'test', hashtags: [], lyricSource: 'think about us', assetNote: 'close-up' }] }
+      input: { posts: [{ platform: 'TIKTOK', caption: 'test', hashtags: [], lyricSource: 'think about us', assetNote: 'close-up', youtubeTitlePhrase: 'test phrase' }] }
     }],
     stop_reason: 'tool_use',
   })

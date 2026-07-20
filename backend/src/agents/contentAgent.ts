@@ -12,6 +12,7 @@ export interface PostDraft {
   hashtags: string[]
   lyricSource: string
   assetNote: string
+  youtubeTitlePhrase: string
 }
 
 export const VIRAL_SYSTEM = `You are a viral music content strategist. Your posts stop scrolls and earn shares.
@@ -44,9 +45,10 @@ const SUBMIT_POSTS_TOOL: Anthropic.Tool = {
             caption: { type: 'string' },
             hashtags: { type: 'array', items: { type: 'string' } },
             lyricSource: { type: 'string', description: 'Exact lyric line this post is rooted in — verbatim, no paraphrasing' },
-            assetNote: { type: 'string', description: 'Specific filename from available assets OR a concrete visual description. If music analysis shows a hook moment, reference it for editing timing.' }
+            assetNote: { type: 'string', description: 'Specific filename from available assets OR a concrete visual description. If music analysis shows a hook moment, reference it for editing timing.' },
+            youtubeTitlePhrase: { type: 'string', description: 'A short (3-6 word) contextual phrase describing this specific post, used to build a YouTube video title. Generate one for every post regardless of platform.' }
           },
-          required: ['platform', 'caption', 'hashtags', 'lyricSource', 'assetNote']
+          required: ['platform', 'caption', 'hashtags', 'lyricSource', 'assetNote', 'youtubeTitlePhrase']
         }
       }
     },
@@ -94,7 +96,7 @@ ${formatGuidance ? `\nFormat: ${formatGuidance}` : ''}${assetsLine}${musicLine}
 Lyrics:
 ${lyricSample}
 
-Write one post per platform. Each post MUST include an exact lyric quote in lyricSource. No paraphrasing.`
+Write one post per platform. Each post MUST include an exact lyric quote in lyricSource. No paraphrasing. Each post also needs a short 3-6 word youtubeTitlePhrase capturing this specific post's visual/emotional angle (e.g. "golden hour driving", "empty chairs at 2am") — generate one even for non-YouTube platforms.`
 
   const response = await client.messages.create({
     model: 'claude-opus-4-8',

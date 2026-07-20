@@ -77,6 +77,7 @@ export async function generateCampaign(campaignId: string, userId: string): Prom
           directionBrief: draft.assetNote,
           scheduledAt: slot.scheduledAt,
           dayOffset,
+          youtubeTitlePhrase: draft.youtubeTitlePhrase,
         })
       }
     }
