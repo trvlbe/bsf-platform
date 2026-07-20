@@ -87,7 +87,7 @@ beforeAll(async () => {
   // --- Push-guard fixtures ---
   // Set env vars so pushCampaign can resolve a token + profile without a real user token
   process.env.BUFFER_ACCESS_TOKEN = 'test-buffer-token'
-  process.env.BUFFER_PROFILE_TIKTOK = 'test-tiktok-profile-id'
+  process.env.BUFFER_CHANNEL_TIKTOK = 'test-tiktok-profile-id'
 
   const pushCampaign = await prisma.campaign.create({
     data: {
@@ -290,5 +290,47 @@ describe('PATCH /api/campaigns/:id/posts/:postId — approve gate on editorStatu
       .patch(`/api/campaigns/${pushCampaignId}/posts/${notStartedGatePostId}`)
       .send({ caption: 'just a caption edit' })
     expect(res.status).toBe(200)
+  })
+})
+
+describe('POST /api/campaigns/:id/push — pushError persistence', () => {
+  it('clears pushError on a successful push and sets it on a failed one', async () => {
+    const { pushPost } = await import('../lib/buffer.js')
+
+    // readyGatePostId was approved earlier in this file with bufferId still
+    // null — exclude it here so it doesn't compete with failingPost for the
+    // single queued mock rejection/resolution below.
+    await prisma.post.update({ where: { id: readyGatePostId }, data: { bufferId: 'pre-existing-buffer-id' } })
+
+    const failingPost = await prisma.post.create({
+      data: {
+        campaignId: pushCampaignId,
+        platform: 'TIKTOK',
+        caption: 'Will fail to push',
+        hashtags: ['#fail'],
+        lyricSource: 'Fail lyric',
+        assetNote: 'Fail asset note',
+        directionBrief: 'Fail direction brief',
+        scheduledAt: new Date('2026-10-06'),
+        dayOffset: 5,
+        approved: true,
+      },
+    })
+
+    ;(pushPost as any).mockRejectedValueOnce(new Error('Invalid channel id'))
+    await request(app).post(`/api/campaigns/${pushCampaignId}/push`)
+
+    const failed = await prisma.post.findUnique({ where: { id: failingPost.id } })
+    expect(failed?.pushError).toBe('Invalid channel id')
+    expect(failed?.bufferId).toBeNull()
+
+    ;(pushPost as any).mockResolvedValueOnce('buffer-post-999')
+    await request(app).post(`/api/campaigns/${pushCampaignId}/push`)
+
+    const succeeded = await prisma.post.findUnique({ where: { id: failingPost.id } })
+    expect(succeeded?.pushError).toBeNull()
+    expect(succeeded?.bufferId).toBe('buffer-post-999')
+
+    await prisma.post.delete({ where: { id: failingPost.id } })
   })
 })

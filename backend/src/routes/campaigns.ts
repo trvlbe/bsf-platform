@@ -432,39 +432,43 @@ campaignsRouter.post('/:id/posts/:postId/push', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId! } })
 
-    let accessToken: string | undefined
+    let apiKey: string | undefined
     try {
-      accessToken = user?.bufferAccessToken
+      apiKey = user?.bufferAccessToken
         ? decrypt(user.bufferAccessToken)
         : process.env.BUFFER_ACCESS_TOKEN
     } catch {
       throw new Error('Buffer access token is unreadable — please re-save it in Settings')
     }
-    if (!accessToken) throw new Error('Buffer access token not configured — add it in Settings')
+    if (!apiKey) throw new Error('Buffer access token not configured — add it in Settings')
 
-    const platformMap: Record<string, string | undefined> = {
+    const channelMap: Record<string, string | undefined> = {
       TIKTOK: (() => {
-        try { return user?.bufferProfileTiktok ? decrypt(user.bufferProfileTiktok) : process.env.BUFFER_PROFILE_TIKTOK } catch { return process.env.BUFFER_PROFILE_TIKTOK }
+        try { return user?.bufferChannelTiktok ? decrypt(user.bufferChannelTiktok) : process.env.BUFFER_CHANNEL_TIKTOK } catch { return process.env.BUFFER_CHANNEL_TIKTOK }
       })(),
       INSTAGRAM: (() => {
-        try { return user?.bufferProfileInstagram ? decrypt(user.bufferProfileInstagram) : process.env.BUFFER_PROFILE_INSTAGRAM } catch { return process.env.BUFFER_PROFILE_INSTAGRAM }
+        try { return user?.bufferChannelInstagram ? decrypt(user.bufferChannelInstagram) : process.env.BUFFER_CHANNEL_INSTAGRAM } catch { return process.env.BUFFER_CHANNEL_INSTAGRAM }
       })(),
       YOUTUBE: (() => {
-        try { return user?.bufferProfileYoutube ? decrypt(user.bufferProfileYoutube) : process.env.BUFFER_PROFILE_YOUTUBE } catch { return process.env.BUFFER_PROFILE_YOUTUBE }
+        try { return user?.bufferChannelYoutube ? decrypt(user.bufferChannelYoutube) : process.env.BUFFER_CHANNEL_YOUTUBE } catch { return process.env.BUFFER_CHANNEL_YOUTUBE }
       })(),
       FACEBOOK: (() => {
-        try { return user?.bufferProfileFacebook ? decrypt(user.bufferProfileFacebook) : process.env.BUFFER_PROFILE_FACEBOOK } catch { return process.env.BUFFER_PROFILE_FACEBOOK }
+        try { return user?.bufferChannelFacebook ? decrypt(user.bufferChannelFacebook) : process.env.BUFFER_CHANNEL_FACEBOOK } catch { return process.env.BUFFER_CHANNEL_FACEBOOK }
       })(),
     }
-    const profileIds: Record<string, string> = {}
-    for (const [platform, id] of Object.entries(platformMap)) {
-      if (id) profileIds[platform] = id
+    const channelIds: Record<string, string> = {}
+    for (const [platform, id] of Object.entries(channelMap)) {
+      if (id) channelIds[platform] = id
     }
 
-    const bufferId = await pushPost(post, accessToken, profileIds)
-    const updated = await prisma.post.update({ where: { id: post.id }, data: { bufferId } })
+    const orderedPosts = await prisma.post.findMany({ where: { campaignId: campaign.id }, orderBy: { scheduledAt: 'asc' }, select: { id: true } })
+    const sequenceNumber = orderedPosts.findIndex(p => p.id === post.id) + 1
+
+    const bufferId = await pushPost(post, apiKey, channelIds, campaign.title, sequenceNumber)
+    const updated = await prisma.post.update({ where: { id: post.id }, data: { bufferId, pushError: null } })
     res.json(updated)
   } catch (err: any) {
+    await prisma.post.update({ where: { id: post.id }, data: { pushError: err.message } })
     res.status(500).json({ error: 'Push failed', message: err.message })
   }
 })
