@@ -354,6 +354,10 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
                 </div>
               )}
 
+              {stage === 3 && livePost.pushError && (
+                <p className="text-xs text-danger">Last push failed: {livePost.pushError}</p>
+              )}
+
               <div className="ml-auto flex items-center gap-3 shrink-0">
                 {isApproved ? (
                   <span className="text-sm font-medium text-success flex items-center gap-1.5">
