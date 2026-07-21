@@ -10,10 +10,10 @@ settingsRouter.use(requireAuth)
 const CREDENTIAL_FIELDS = [
   'anthropicApiKey',
   'bufferAccessToken',
-  'bufferProfileTiktok',
-  'bufferProfileInstagram',
-  'bufferProfileYoutube',
-  'bufferProfileFacebook',
+  'bufferChannelTiktok',
+  'bufferChannelInstagram',
+  'bufferChannelYoutube',
+  'bufferChannelFacebook',
   'higgsfieldApiKey',
 ] as const
 
@@ -24,10 +24,10 @@ const credentialString = z.string().trim().min(1)
 const UpdateSettingsSchema = z.object({
   anthropicApiKey: credentialString.optional(),
   bufferAccessToken: credentialString.optional(),
-  bufferProfileTiktok: credentialString.optional(),
-  bufferProfileInstagram: credentialString.optional(),
-  bufferProfileYoutube: credentialString.optional(),
-  bufferProfileFacebook: credentialString.optional(),
+  bufferChannelTiktok: credentialString.optional(),
+  bufferChannelInstagram: credentialString.optional(),
+  bufferChannelYoutube: credentialString.optional(),
+  bufferChannelFacebook: credentialString.optional(),
   higgsfieldApiKey: credentialString.optional(),
 })
 

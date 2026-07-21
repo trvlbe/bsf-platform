@@ -47,10 +47,10 @@ export interface DriveFile {
 export interface SettingsResponse {
   anthropicApiKey: string | null
   bufferAccessToken: string | null
-  bufferProfileTiktok: string | null
-  bufferProfileInstagram: string | null
-  bufferProfileYoutube: string | null
-  bufferProfileFacebook: string | null
+  bufferChannelTiktok: string | null
+  bufferChannelInstagram: string | null
+  bufferChannelYoutube: string | null
+  bufferChannelFacebook: string | null
   higgsfieldApiKey: string | null
   isSetupComplete: boolean
 }

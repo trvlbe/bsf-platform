@@ -15,11 +15,11 @@ const AI_FIELDS: FieldConfig[] = [
 ]
 
 const BUFFER_FIELDS: FieldConfig[] = [
-  { key: 'bufferAccessToken', label: 'Buffer Access Token', placeholder: 'access token...', required: true },
-  { key: 'bufferProfileTiktok', label: 'TikTok Profile ID', placeholder: 'Buffer profile ID', required: false },
-  { key: 'bufferProfileInstagram', label: 'Instagram Profile ID', placeholder: 'Buffer profile ID', required: false },
-  { key: 'bufferProfileYoutube', label: 'YouTube Profile ID', placeholder: 'Buffer profile ID', required: false },
-  { key: 'bufferProfileFacebook', label: 'Facebook Profile ID', placeholder: 'Buffer profile ID', required: false },
+  { key: 'bufferAccessToken', label: 'Buffer API Key', placeholder: 'Bearer API key from publish.buffer.com/settings/api', required: true },
+  { key: 'bufferChannelTiktok', label: 'TikTok Channel ID', placeholder: 'Buffer channel ID', required: false },
+  { key: 'bufferChannelInstagram', label: 'Instagram Channel ID', placeholder: 'Buffer channel ID', required: false },
+  { key: 'bufferChannelYoutube', label: 'YouTube Channel ID', placeholder: 'Buffer channel ID', required: false },
+  { key: 'bufferChannelFacebook', label: 'Facebook Channel ID', placeholder: 'Buffer channel ID', required: false },
 ]
 
 const VIDEO_FIELDS: FieldConfig[] = [
