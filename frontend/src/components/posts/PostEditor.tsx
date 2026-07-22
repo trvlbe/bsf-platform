@@ -101,10 +101,12 @@ export function PostEditor({ post: initialPost, campaignId, onClose }: Props) {
 
   const pushMutation = useMutation({
     mutationFn: () => api.pushPost(campaignId, initialPost.id),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      setLivePost(updated)
       qc.invalidateQueries({ queryKey: ['posts', campaignId] })
       onClose()
     },
+    onError: (e: Error) => setLivePost((prev: any) => ({ ...prev, pushError: e.message })),
   })
 
   const isApproved = livePost.approved

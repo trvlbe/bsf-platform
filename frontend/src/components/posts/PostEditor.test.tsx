@@ -217,6 +217,15 @@ describe('PostEditor — Stage 3: Review', () => {
     expect(screen.queryByText(/Last push failed/)).not.toBeInTheDocument()
   })
 
+  it('shows the push error immediately after a failed push, without needing to reopen', async () => {
+    ;(api.pushPost as any).mockRejectedValueOnce(new Error('Invalid channel id'))
+    render(wrap(<PostEditor post={{ ...STAGE3_READY_POST, approved: true }} campaignId="camp-1" onClose={() => {}} />))
+
+    fireEvent.click(screen.getByText('Push →'))
+
+    await waitFor(() => expect(screen.getByText(/Last push failed: Invalid channel id/)).toBeInTheDocument())
+  })
+
   it('re-disables Push and re-shows Approve after a regenerate clears approval, even though this component already approved it once', async () => {
     ;(api.approvePost as any).mockResolvedValueOnce({ ...STAGE3_READY_POST, approved: true })
     render(wrap(<PostEditor post={STAGE3_READY_POST} campaignId="camp-1" onClose={() => {}} />))
